@@ -10,6 +10,16 @@ NeoRAG Cup 2026 là cuộc thi nội bộ do Team AI – CLB Lập Trình PTIT t
 
 Repository này cung cấp bộ dữ liệu, pipeline baseline, bộ chấm chính thức và một chatbot mẫu để tham khảo. Hướng dẫn cài đặt và sử dụng có trong tài liệu [Hướng dẫn sử dụng](docs/guide.md).
 
+## Giải pháp
+
+Pipeline của thí sinh là `HybridPipeline`: viết lại câu hỏi bằng LLM, hybrid search BM25 (bỏ dấu) + bge-m3 gộp bằng RRF, rồi một lần gọi LLM vừa chọn đoạn liên quan vừa trả lời. Kiến trúc, các quyết định kỹ thuật và kết quả: [docs/solution.md](docs/solution.md).
+
+```bash
+neorag run train --pipeline neorag.pipelines.hybrid:HybridPipeline --no-judge
+neorag run public_test --pipeline neorag.pipelines.hybrid:HybridPipeline
+python -m streamlit run app/chat.py
+```
+
 ## Tổng quan
 
 | Hạng mục | Chi tiết |
