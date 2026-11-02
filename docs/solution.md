@@ -37,12 +37,25 @@ Retrieval trên tập train (122 câu có `relevant_ids`), trung bình của Rec
 
 | Cấu hình | Recall@5 | MRR@5 | NDCG@5 | Trung bình |
 |---|---:|---:|---:|---:|
+| Baseline (bge-m3 cosine) | 0.782 | 0.692 | 0.691 | 0.722 |
 | BM25 bỏ dấu | 0.790 | 0.780 | 0.736 | 0.769 |
 | + mở rộng viết tắt | 0.798 | 0.790 | 0.742 | 0.776 |
 | + ưu tiên CLB được hỏi (`--offline`) | 0.837 | 0.805 | 0.771 | 0.805 |
-| + bge-m3 (`--no-rewrite`) | _chưa chạy_ | | | |
-| + viết lại câu hỏi | _chưa chạy_ | | | |
-| Pipeline đầy đủ (`neorag run train`) | _chưa chạy_ | | | |
+| + bge-m3 cho mọi truy vấn | 0.835 | 0.782 | 0.764 | 0.794 |
+| + bge-m3 chỉ cho truy vấn có dấu (`--no-rewrite`) | 0.867 | 0.830 | 0.802 | 0.833 |
+| + viết lại câu hỏi bằng LLM | 0.928 | 0.873 | 0.851 | 0.884 |
+| + LLM chọn đoạn đã dùng (pipeline đầy đủ) | 0.971 | 1.000 | 0.977 | **0.983** |
+
+bge-m3 hiểu kém câu viết không dấu (nhóm "không dấu/viết tắt" tụt từ 0.821 xuống 0.637 khi embed nguyên câu gốc), nên dense chỉ dùng các truy vấn có dấu; câu không dấu được LLM viết lại có dấu trước khi embed.
+
+Generation trên train (`--no-judge`):
+
+| Prompt | String Presence | ROUGE-L | BLEU-4 | Độ dài median | Latency median |
+|---|---:|---:|---:|---:|---:|
+| v1: 1-3 câu, nói rõ phần tài liệu không nêu | 0.895 | 0.626 | 0.468 | 272 ký tự | 2.4 s |
+| v2: dừng khi đã trả lời đủ, không rào đón | 0.894 | **0.644** | **0.503** | 208 ký tự | 2.2 s |
+
+Đáp án chuẩn có độ dài median 196 ký tự. Bản v1 hay thêm câu "Tài liệu không nêu thêm ..." kể cả khi đã trả lời đủ, làm giảm ROUGE-L. Hai câu train-0001 và train-0019 nằm trong ví dụ của prompt nên điểm train hơi lạc quan.
 
 Public Test: baseline 52.40, ngưỡng 53.40. Điểm của HybridPipeline: _chưa nộp_.
 

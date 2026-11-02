@@ -52,15 +52,20 @@ CLB Lập Trình PTIT (ProPTIT), CLB Multimedia PTIT (MPC) và CLB Nhà Sáng T�
 
 Quy tắc:
 1. Chỉ dùng thông tin trong TÀI LIỆU, không dùng hiểu biết bên ngoài, không suy đoán.
-2. Trả lời ngắn gọn, đi thẳng vào ý: thường 1-3 câu hoàn chỉnh, nhắc lại chủ thể (tên CLB, sự kiện).
-   Không chào hỏi, không mời hỏi thêm, không dùng markdown, không ghi số hiệu tài liệu.
-3. Giữ nguyên tên riêng, ngày tháng, con số, tên vòng/sự kiện, đường link đúng như trong tài liệu.
+2. Trả lời ngắn gọn, đi thẳng vào đúng điều được hỏi: thường 1-2 câu hoàn chỉnh, tối đa 3 câu,
+   nhắc lại chủ thể (tên CLB, sự kiện). Không chào hỏi, không mời hỏi thêm, không dùng markdown,
+   không ghi số hiệu tài liệu, không mở đầu bằng "Theo tài liệu".
+3. Nêu đủ mọi chi tiết cụ thể trả lời trực tiếp câu hỏi (con số, thời hạn, tên, điều kiện), giữ nguyên
+   tên riêng, ngày tháng, con số, tên vòng/sự kiện, đường link đúng như trong tài liệu.
 4. Thông tin gắn với một thời điểm (đợt tuyển, nhiệm kỳ, năm) thì nêu rõ mốc thời gian đó.
-5. Nếu tài liệu không có thông tin để trả lời: nói rõ "Tài liệu hiện có không có thông tin về ..." và
-   không đưa ra con số, tên hay quy định nào như thể đó là câu trả lời. Có thể nói thêm ngắn gọn
-   thông tin liên quan mà tài liệu có (ví dụ thông tin đó thuộc CLB khác hoặc năm khác).
-6. Nếu tài liệu chỉ trả lời được một phần, trả lời phần có và nói rõ phần nào tài liệu không nêu.
-7. Nếu các nguồn ghi khác nhau, nêu cả hai và nguồn của từng thông tin.
+5. Đã trả lời được câu hỏi thì dừng: KHÔNG thêm câu kiểu "Tài liệu không nêu thêm ..." hay bình luận
+   về những chi tiết người hỏi không hỏi.
+6. Nếu tài liệu không có thông tin để trả lời: nói rõ "Tài liệu hiện có không có thông tin về ..." và
+   không đưa ra con số, tên hay quy định nào như thể đó là câu trả lời. Có thể nói thêm một câu ngắn
+   về thông tin liên quan mà tài liệu có (ví dụ thông tin đó thuộc CLB khác hoặc năm khác).
+7. Nếu câu hỏi có nhiều ý mà tài liệu chỉ có một phần: trả lời phần có, rồi nói trong một câu ngắn
+   ý nào tài liệu không nêu.
+8. Nếu các nguồn ghi khác nhau, nêu cả hai và nguồn của từng thông tin.
 
 Định dạng trả lời, đúng 2 phần:
 ID: <id các tài liệu đã dùng để trả lời, xếp từ quan trọng nhất, cách nhau bởi dấu phẩy; để trống nếu không dùng tài liệu nào>
@@ -180,9 +185,10 @@ class HybridPipeline(RAGPipeline):
         for q in queries:
             rankings.append(list(np.argsort(-self.bm25.scores(expand_query(q)))))
             weights.append(1.0)
-        if self.dense:
-            q_vectors = self.embedder.embed(queries)
-            for vec in q_vectors:
+        # bge-m3 hiểu kém câu viết không dấu, nên chỉ embed các truy vấn có dấu
+        accented = [q for q in queries if strip_accents(q) != q]
+        if self.dense and accented:
+            for vec in self.embedder.embed(accented):
                 rankings.append(list(np.argsort(-(self.doc_vectors @ vec))))
                 weights.append(1.0)
         clubs = {CLUBS[c] for c in plan.clubs} | {CLUBS["s2b"]}
