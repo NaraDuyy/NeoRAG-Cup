@@ -194,3 +194,50 @@ def test_hybrid_without_rewrite_or_dense(corpus):
     out = pipeline.run("GCC ra doi nam nao")
     assert out.answer and out.retrieved_ids[0] == 3
     assert len(llm.calls) == 1
+
+
+class _FakeReranker:
+    """Cross-encoder giả: đoạn có chữ "GCC" được điểm cao nhất."""
+
+    def __init__(self):
+        self.calls = []
+
+    def score(self, query, texts):
+        self.calls.append((query, texts))
+        return [1.0 if "GCC" in t else 0.0 for t in texts]
+
+
+def test_rerank_fuses_cross_encoder_order_into_rrf(corpus):
+    llm = FakeLLM(
+        lambda m: "TRẢ LỜI: Không rõ."
+    )  # không có dòng ID: thứ tự chỉ do xếp hạng quyết định
+    reranker = _FakeReranker()
+    pipeline = HybridPipeline(rewrite=False, dense=False, few_shot=0, llm=llm, reranker=reranker)
+    pipeline.index(corpus)
+    query = "clb multimedia thanh lap ngay nao"
+    rrf_order = [d.id for d in pipeline.retrieve(pipeline.plan(query))]
+    assert rrf_order[0] == 2 and rrf_order[-1] == 3
+    out = pipeline.run(query)
+    # trọng số 1: đoạn 3 hạng 1 theo cross-encoder vượt lên, nhưng không qua đoạn hạng 1 của RRF
+    assert out.retrieved_ids[0] == 2 and out.retrieved_ids.index(3) < rrf_order.index(3)
+    # mặc định ứng viên cho LLM vẫn theo RRF: đoạn 2 đứng trước đoạn 3 trong TÀI LIỆU
+    context = llm.calls[0][1]["content"]
+    assert context.index("[2]") < context.index("[3]")
+    assert reranker.calls[0][0] == query and len(reranker.calls[0][1]) == 3
+
+
+def test_rerank_candidates_changes_llm_context_order(corpus):
+    llm = FakeLLM(lambda m: "TRẢ LỜI: Không rõ.")
+    pipeline = HybridPipeline(
+        rewrite=False,
+        dense=False,
+        few_shot=0,
+        n_candidates=2,
+        llm=llm,
+        reranker=_FakeReranker(),
+        rerank_candidates=True,
+        rerank_weight=5.0,
+    )
+    pipeline.index(corpus)
+    pipeline.run("clb multimedia thanh lap ngay nao")
+    assert "[3]" in llm.calls[0][1]["content"]  # đoạn GCC được đưa vào 2 ứng viên

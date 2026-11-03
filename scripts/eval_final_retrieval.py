@@ -28,10 +28,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--k", type=int, default=5)
     parser.add_argument("--show", action="store_true", help="in các câu có Recall@k < 1")
+    parser.add_argument("--reranker", help="cross-encoder local, ví dụ BAAI/bge-reranker-v2-m3")
+    parser.add_argument(
+        "--rerank-candidates", action="store_true", help="chọn ứng viên cho LLM theo reranker"
+    )
     args = parser.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
 
-    pipeline = HybridPipeline()
+    pipeline = HybridPipeline(reranker=args.reranker, rerank_candidates=args.rerank_candidates)
     pipeline.index(load_corpus())
     half, _ = split_train()
 

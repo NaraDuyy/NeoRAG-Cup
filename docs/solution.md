@@ -109,6 +109,26 @@ Trên train, v5 còn 8 câu có Recall@5 < 1. [`scripts/eval_final_retrieval.py`
 - Kiểm tra lộ đáp án: 17 câu có ví dụ mà đáp án gần giống (ROUGE-L ≥ 0.4) tăng ROUGE-L +0.025, các câu còn lại tăng +0.027. Như vậy phần tăng đến từ văn phong, không phải từ chép nội dung.
 - Mỗi lần sinh lại câu trả lời có nhiễu lớn: ROUGE-L của từng câu dao động tới ±0.4 dù ý không đổi. Chênh lệch dưới khoảng 0.02 trên một nửa train chưa đủ để kết luận.
 
+### v8 (không giữ): cross-encoder reranker chạy local
+
+Trên Public, retrieval thấp hơn train khoảng 5 điểm (Recall@5 90.7 so với 98.0). Mình nghi các quyết định retrieval đang khớp riêng với train, nên thử [`LocalReranker`](../src/neorag/embeddings.py) (`BAAI/bge-reranker-v2-m3`, chạy CPU, điểm cache trong `.cache/reranker.sqlite`). Reranker chấm 20 đoạn đầu RRF với câu hỏi đã viết lại. Mọi phép đo đều làm trên cả nửa hold của train lẫn bộ dev 27 câu, vốn không dùng để thiết kế.
+
+| Thứ tự trước bước LLM chọn đoạn (`eval_retrieval.py`) | dev | tune | hold |
+|---|---:|---:|---:|
+| RRF (hiện tại) | 0.847 | 0.898 | 0.868 |
+| Xếp hẳn theo cross-encoder | **0.968** | 0.913 | 0.824 |
+| Gộp thứ tự cross-encoder vào RRF, trọng số 1 | 0.925 | 0.907 | **0.887** |
+
+- Cách gộp tăng trên cả ba bộ, nhưng sau bước LLM chọn đoạn thì không còn lợi:
+  - chỉ xếp phần sau dòng `ID:` theo thứ tự gộp: retrieval cuối trên hold 0.9853 → 0.9848;
+  - chọn cả 12 ứng viên theo thứ tự gộp (chạy lại train): hold Recall 0.9732 → 0.9673, NDCG 0.9803 → 0.9741; ROUGE-L tune / hold 0.703 / 0.647 → 0.680 / 0.642.
+- Lý do: top 5 cuối cùng chủ yếu do các id LLM ghi quyết định, và tỉ lệ đoạn đúng nằm trong 12 ứng viên gần như không đổi (hold 0.975 → 0.969, tune 0.984 → 0.992).
+- Code được giữ, tắt mặc định (`reranker=None`). Bật bằng `HybridPipeline(reranker="BAAI/bge-reranker-v2-m3")`, cần `python scripts/install.py --local`. Trên CPU mất khoảng 10 giây mỗi câu.
+
+Đo lại từng công tắc retrieval trên dev và hold (`eval_retrieval.py`, không tốn API) cho thấy không quyết định nào chỉ có lợi trên train:
+- Bước viết lại câu hỏi tăng retrieval ở cả dev (0.766 → 0.847), hold (0.771 → 0.868) và tune (0.889 → 0.898).
+- `club_weight` 0, 0.5 hay 1 cho kết quả gần như nhau.
+
 Public Test: baseline 52.40, ngưỡng 53.40. HybridPipeline với prompt v2: **88.64**, prompt v5: **89.14**, v7b: **89.20**.
 
 ### Từ điển viết tắt từ dataset ngoài
@@ -167,6 +187,7 @@ python scripts/eval_retrieval.py --no-rewrite    # thêm bge-m3
 python scripts/eval_retrieval.py                 # thêm bước viết lại câu hỏi
 python scripts/eval_retrieval.py --questions eval/abbrev_dev.jsonl   # bộ câu viết tắt riêng
 python scripts/eval_final_retrieval.py --show    # retrieved_ids cuối cùng, chia tune/hold
+python scripts/eval_retrieval.py --half hold --reranker BAAI/bge-reranker-v2-m3   # thử cross-encoder
 
 # Sinh lại từ điển viết tắt (cần tải CSV của hai dataset về trước)
 python scripts/build_abbreviations.py --yammdd <thư mục> --vilexnorm <thư mục>

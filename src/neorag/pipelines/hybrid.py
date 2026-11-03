@@ -183,11 +183,26 @@ class HybridPipeline(RAGPipeline):
         embedding_model: str | None = None,
         llm: LLMClient | None = None,
         embedder=None,
+        reranker=None,
+        rerank_top: int = 20,
+        rerank_weight: float = 1.0,
+        rerank_candidates: bool = False,
+        rerank_tail: bool = True,
     ):
         self.n_candidates = n_candidates  # số đoạn đưa vào prompt sinh câu trả lời
         self.n_retrieved = n_retrieved  # số đoạn trả về để chấm retrieval
         self.n_promoted = n_promoted  # số id ở dòng `ID:` tối đa được đưa lên đầu
         self.few_shot = few_shot  # số câu train giống nhất làm ví dụ văn phong; 0 là tắt
+        # cross-encoder chạy local (tên model hoặc object có .score); None là tắt
+        if isinstance(reranker, str):
+            from neorag.embeddings import LocalReranker
+
+            reranker = LocalReranker(reranker)
+        self.reranker = reranker
+        self.rerank_top = rerank_top  # số đoạn đầu RRF được cross-encoder chấm lại
+        self.rerank_weight = rerank_weight  # trọng số RRF của thứ tự cross-encoder
+        self.rerank_candidates = rerank_candidates  # chọn ứng viên cho LLM theo cross-encoder
+        self.rerank_tail = rerank_tail  # xếp phần sau các id LLM ghi theo cross-encoder
         self.rewrite = rewrite
         self.dense = dense
         self.club_weight = club_weight  # trọng số RRF của bảng xếp hạng chỉ gồm CLB được hỏi
@@ -267,12 +282,28 @@ class HybridPipeline(RAGPipeline):
         reply = self._chat(system, user)
         return parse_answer(reply, {d.id for d in candidates})
 
+    def rerank(self, plan: QueryPlan, ranked: list[Document]) -> list[Document]:
+        """Gộp thứ tự RRF với thứ tự cross-encoder của `rerank_top` đoạn đầu (lại bằng RRF).
+
+        Xếp hẳn theo cross-encoder kém hơn RRF trên nửa hold của train; gộp với trọng số
+        `rerank_weight` thì tăng trên cả tune, hold và bộ dev viết tắt.
+        """
+        head = ranked[: self.rerank_top]
+        texts = [f"{d.club} · {d.topic}. {d.text}" for d in head]
+        scores = self.reranker.score(plan.rewritten or plan.query, texts)
+        by_score = sorted(range(len(head)), key=lambda i: -scores[i])
+        fused = rrf([list(range(len(ranked))), by_score], [1.0, self.rerank_weight])
+        return [ranked[i] for i in sorted(fused, key=fused.get, reverse=True)]
+
     def run(self, query: str) -> RAGOutput:
         plan = self.plan(query)
         ranked = self.retrieve(plan)
-        answer, used = self.answer(plan, ranked[: self.n_candidates])
+        reranked = self.rerank(plan, ranked) if self.reranker else ranked
+        pool = reranked if self.rerank_candidates else ranked
+        answer, used = self.answer(plan, pool[: self.n_candidates])
         if not answer:
             answer = "Tài liệu hiện có không có thông tin để trả lời câu hỏi này."
+        tail = reranked if self.rerank_tail else ranked
         promoted = used[: self.n_promoted]
-        retrieved = list(dict.fromkeys([*promoted, *(d.id for d in ranked)]))[: self.n_retrieved]
+        retrieved = list(dict.fromkeys([*promoted, *(d.id for d in tail)]))[: self.n_retrieved]
         return RAGOutput(answer=answer, retrieved_ids=retrieved)
