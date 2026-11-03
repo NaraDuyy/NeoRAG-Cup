@@ -36,20 +36,27 @@ class Abbreviations:
 
     Không bỏ nghĩa nào: `rank_by_corpus` chỉ đưa các nghĩa xuất hiện trong corpus lên trước
     (kể cả chính token nếu nó là một từ trong corpus, ví dụ "cv" trong "vòng CV").
+
+    Viết tắt "đã biết" (mục soạn tay, nguồn `manual`) đã được giải thích trong prompt viết lại câu hỏi:
+    không sinh gợi ý cho chúng, và BM25 chỉ mở chúng theo nghĩa soạn tay đầu tiên.
     """
 
-    def __init__(self, table: dict[str, list[str]]):
+    def __init__(self, table: dict[str, list[str]], known: dict[str, list[str]] | None = None):
         self.table = table
+        self.known = known or {}  # viết tắt đã biết -> các nghĩa soạn tay
         self.in_corpus: dict[str, list[str]] = {}
 
     @classmethod
     def load(cls, path: Path = RESOURCE) -> Abbreviations:
-        table = {}
+        table, known = {}, {}
         for line in path.read_text(encoding="utf-8").splitlines():
             if line and not line.startswith("#"):
-                token, senses, *_ = line.split("\t")
-                table[token] = senses.split("|")
-        return cls(table)
+                token, senses, origins = line.split("\t")
+                pairs = list(zip(senses.split("|"), origins.split("|"), strict=True))
+                table[token] = [s for s, _ in pairs]
+                if manual := [s for s, o in pairs if o == "manual"]:
+                    known[token] = manual
+        return cls(table, known)
 
     def rank_by_corpus(self, texts: list[str]) -> Abbreviations:
         haystack = " " + " ".join(strip_accents(t) for x in texts for t in tokenize(x)) + " "
@@ -66,13 +73,23 @@ class Abbreviations:
         return self.table.get(token, [])
 
     def bm25_senses(self, token: str) -> list[str]:
-        """Nghĩa dùng để mở rộng câu hỏi cho BM25: nghĩa có trong corpus nếu đã xếp theo corpus."""
-        return self.in_corpus.get(token, self.senses(token))
+        """Nghĩa dùng để mở rộng câu hỏi cho BM25.
+
+        Viết tắt đã biết: nghĩa soạn tay đầu tiên. Còn lại: nghĩa có trong corpus (nếu đã xếp theo
+        corpus), gộp các nghĩa trùng nhau sau khi bỏ dấu ("học viện" / "học viên").
+        """
+        if token in self.known:
+            return self.known[token][:1]
+        unique: dict[str, str] = {}
+        for sense in self.in_corpus.get(token, self.senses(token)):
+            unique.setdefault(strip_accents(sense), sense)
+        return list(unique.values())
 
     def hints(self, query: str, limit: int = 3) -> list[tuple[str, list[str]]]:
-        """Các viết tắt có trong câu hỏi và tối đa `limit` nghĩa của mỗi viết tắt."""
+        """Các viết tắt lạ (không phải viết tắt đã biết) trong câu hỏi, tối đa `limit` nghĩa mỗi cái."""
         tokens = dict.fromkeys(strip_accents(t) for t in tokenize(query))
-        return [(t, self.senses(t)[:limit]) for t in tokens if t in self.table]
+        known = self.known
+        return [(t, self.senses(t)[:limit]) for t in tokens if t in self.table and t not in known]
 
 
 _DEFAULT: Abbreviations | None = None

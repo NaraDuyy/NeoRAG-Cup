@@ -7,7 +7,6 @@ ace	anh chị em	both
 ae	anh em	both
 ah	anh	both
 aiu	anh yêu	both
-any	người yêu	both
 as	ánh sáng	both
 avt	avatar	yammdd
 bag	bằng	both
@@ -138,7 +137,7 @@ dag	đang	both
 dah	đánh	both
 dangiu	đang yêu	both
 dangyeu	đang yêu	both
-dc	được|bằng được	manual|both
+dc	được	manual
 dcd	được	both
 dchi	địa chỉ	both
 dcs	đảng cộng sản	yammdd
@@ -181,7 +180,6 @@ dzai	đẹp trai	both
 ebe	em bé	both
 embe	em bé	both
 ew	yêu	both
-exp	kinh nghiệm	vilexnorm
 ezai	em trai	both
 fa	phá	yammdd
 face	facebook	yammdd
@@ -253,7 +251,6 @@ hx	hàng xóm	both
 hxua	hồi xưa	both
 ib	inbox	yammdd
 ifone	iphone	yammdd
-ik	mình đi	both
 inb	inbox	yammdd
 iu	yêu	both
 j	gì	manual
@@ -412,16 +409,13 @@ oxa	ông xã	both
 oy	rồi	both
 p	phải	both
 pai	phải	both
-pele	bê đê	both
 ph	phải|phụ huynh|phục	both|both|both
 phiu	phiếu	both
 pic	biết	both
-pih	bây giờ	both
 pik	biết	both
 pit	biết	both
 pk	phòng khám|phong kiến	both|both
 pn	phụ nữ	both
-post	bài đăng	yammdd
 pp	phương pháp	both
 pro	proptit	manual
 pt	biết|phổ thông	both|both
@@ -479,7 +473,7 @@ ss	sẵn sàng	both
 st	sơn tùng	yammdd
 stk	số tài khỏan	both
 stt	status	yammdd
-sv	sinh viên|súc vật	manual|both
+sv	sinh viên	manual
 svien	sinh viên	both
 sx	sản xuất	both
 t1	tháng 1	manual
@@ -609,7 +603,6 @@ xog	xong	both
 xun	xuống	both
 xuog	xuống	both
 yang	giang	both
-yangho	giang hồ	both
 z	vậy	both
 za	già	both
 zai	trai	both

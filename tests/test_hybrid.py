@@ -20,8 +20,26 @@ def test_strip_accents_and_expand_query():
     assert "multimedia" in expanded and "thành viên" in expanded and "tháng 10" in expanded
     assert "gcc" in expand_query("clb lam game cua hv")
     assert "gcc" in expand_query("câu lạc bộ game ptit")
-    assert "tháng 5" in expand_query("t5 co sinh hoat ko")
-    assert "tháng 5" not in expand_query("t5 co sinh hoat ko", ambiguous=False)
+    # viết tắt lạ đa nghĩa: chỉ mở khi ambiguous=True
+    assert "bao nhiêu" in expand_query("phi bn")
+    assert "bao nhiêu" not in expand_query("phi bn", ambiguous=False)
+    # viết tắt đã biết: luôn mở theo nghĩa soạn tay đầu tiên, như bản trước khi có từ điển
+    expanded = expand_query("hv dk t5 sv", ambiguous=False)
+    assert expanded == "hv dk t5 sv học viện đăng ký tháng 5 sinh viên"
+
+
+def test_known_abbreviations_get_no_hint():
+    abbrevs = Abbreviations.load()
+    assert abbrevs.hints("clb mm tuyen tv bh, phi bn") == [
+        ("bh", abbrevs.senses("bh")[:3]),
+        ("bn", abbrevs.senses("bn")[:3]),
+    ]
+    assert abbrevs.hints("hv t10 ko dc j") == []
+
+
+def test_bm25_senses_merge_spellings_without_accents():
+    abbrevs = Abbreviations({"hvien": ["học viện", "học viên"]})
+    assert abbrevs.bm25_senses("hvien") == ["học viện"]
 
 
 def test_abbreviations_rank_by_corpus_keeps_every_sense():
@@ -39,6 +57,8 @@ def test_default_abbreviations_are_packaged():
     abbrevs = Abbreviations.load()
     assert len(abbrevs.table) > 100
     assert {"tháng 5", "thứ 5"} <= set(abbrevs.senses("t5"))
+    every_sense = {s for senses in abbrevs.table.values() for s in senses}
+    assert not {"súc vật", "bằng được"} & every_sense  # nghĩa rác đã bị lọc
 
 
 def test_bm25_matches_query_without_diacritics(corpus):
@@ -102,12 +122,14 @@ def test_plan_adds_abbreviation_hints_to_user_message(corpus):
     llm = FakeLLM(_responder)
     pipeline = HybridPipeline(llm=llm, embedder=FakeEmbedder())
     pipeline.index(corpus)
-    pipeline.plan("t5 clb mm co sinh hoat ko")
+    pipeline.plan("bh clb mm co sinh hoat ko")
     user = llm.calls[0][1]["content"]
-    assert user.startswith("t5 clb mm co sinh hoat ko\n\n" + HINTS_HEADER)
-    assert "- t5: " in user and "tháng 5" in user and "thứ 5" in user
-    pipeline.plan("CLB Multimedia PTIT thành lập ngày nào?")
-    assert llm.calls[1][1]["content"] == "CLB Multimedia PTIT thành lập ngày nào?"
+    assert user.startswith("bh clb mm co sinh hoat ko\n\n" + HINTS_HEADER)
+    assert "- bh: " in user and "bao giờ" in user
+    assert "- mm" not in user and "- ko" not in user  # viết tắt đã biết không cần gợi ý
+    # không có viết tắt lạ: user message chỉ là câu hỏi, giống hệt bản trước (trúng cache cũ)
+    pipeline.plan("t10 clb mm co sinh hoat ko")
+    assert llm.calls[1][1]["content"] == "t10 clb mm co sinh hoat ko"
     assert llm.calls[0][0]["content"] == REWRITE_SYSTEM
 
 

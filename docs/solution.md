@@ -22,7 +22,7 @@ retrieved_ids = đoạn LLM đã dùng + phần còn lại theo RRF (đủ 10)  
 
 | Vấn đề trong dữ liệu | Cách xử lý |
 |---|---|
-| ~20% câu hỏi viết không dấu, viết tắt (`clb mm`, `tv`, `nk`, `t10`) | BM25 so khớp trên âm tiết đã bỏ dấu; `expand_query` mở viết tắt (từ điển 621 mục trích từ dataset ngoài) và tên CLB không chính thức (`clb game` → GCC); LLM viết lại câu hỏi có dấu cho bge-m3, kèm gợi ý nghĩa của viết tắt |
+| ~20% câu hỏi viết không dấu, viết tắt (`clb mm`, `tv`, `nk`, `t10`) | BM25 so khớp trên âm tiết đã bỏ dấu; `expand_query` mở viết tắt (từ điển 614 mục trích từ dataset ngoài) và tên CLB không chính thức (`clb game` → GCC); LLM viết lại câu hỏi có dấu cho bge-m3, kèm gợi ý nghĩa của các viết tắt lạ |
 | Corpus nhỏ (118 đoạn), mỗi đoạn tự đủ ngữ cảnh | Không chunking; index nguyên đoạn kèm `club` và `topic` |
 | Câu hỏi so sánh, nhiều đoạn | LLM tách thành truy vấn con, mỗi truy vấn con đóng góp một bảng xếp hạng vào RRF |
 | Câu hỏi thường nhắm một CLB | Thêm bảng xếp hạng chỉ gồm đoạn của CLB được hỏi (và Cộng đồng S2B) vào RRF |
@@ -57,11 +57,11 @@ Generation trên train (`--no-judge`):
 
 Đáp án chuẩn có độ dài median 196 ký tự. Bản v1 hay thêm câu "Tài liệu không nêu thêm ..." kể cả khi đã trả lời đủ, làm giảm ROUGE-L. Hai câu train-0001 và train-0019 nằm trong ví dụ của prompt nên điểm train hơi lạc quan.
 
-Public Test: baseline 52.40, ngưỡng 53.40. HybridPipeline (trước khi có từ điển viết tắt): **88.64**.
+Public Test: baseline 52.40, ngưỡng 53.40. HybridPipeline: **88.64**.
 
 ### Từ điển viết tắt từ dataset ngoài
 
-Từ điển viết tắt ban đầu (~20 mục) được soạn tay sau khi đọc câu hỏi train, nên dễ overfit. Bản hiện tại ([`src/neorag/resources/abbreviations.tsv`](../src/neorag/resources/abbreviations.tsv), 621 viết tắt) do [`scripts/build_abbreviations.py`](../scripts/build_abbreviations.py) trích từ hai dataset chuẩn hóa văn bản tiếng Việt:
+Từ điển viết tắt ban đầu (~20 mục) được soạn tay sau khi đọc câu hỏi train, nên dễ overfit. Bản hiện tại ([`src/neorag/resources/abbreviations.tsv`](../src/neorag/resources/abbreviations.tsv)) do [`scripts/build_abbreviations.py`](../scripts/build_abbreviations.py) trích từ hai dataset chuẩn hóa văn bản tiếng Việt:
 
 | Nguồn | Quy mô | Nhãn | License |
 |---|---|---|---|
@@ -74,22 +74,37 @@ Từ điển viết tắt ban đầu (~20 mục) được soạn tay sau khi đ�
   - token có chữ số, hoặc là một âm tiết phổ biến (`nhin`, `ca`);
   - nghĩa chứa âm tiết hiếm, tức nhãn lỗi (`khongo`);
   - lỗi gõ thiếu 1 ký tự (`lic` → `lịch`);
-  - từ tục tĩu.
-- Gộp thêm các mục soạn tay (`mm`, `mpc`, `pro`, `ttv`...) và `t1`…`t12`, trong đó `t2`–`t7` mang cả nghĩa "tháng N" lẫn "thứ N".
+  - nghĩa nhiều âm tiết không bắt đầu bằng chữ đầu của viết tắt, do phép căn chuỗi gộp nhầm từ đứng trước (`dc` → "bằng được"). Có tính các chữ thay thế của teencode (`z` ~ `v`/`d`, `k` ~ `c`...);
+  - từ tục tĩu và từ xúc phạm (`súc vật`).
+- Gộp thêm các mục soạn tay (`mm`, `mpc`, `pro`, `ttv`...) và `t1`…`t12`, trong đó `t2`–`t7` mang cả nghĩa "tháng N" lẫn "thứ N". Kết quả: 614 viết tắt.
 - Không bỏ nghĩa nào. `Abbreviations.rank_by_corpus` chỉ đưa các nghĩa có trong corpus lên trước. Nếu bản thân token là một từ trong corpus (`cv` trong "vòng CV"), giữ nguyên token cũng được tính là một nghĩa.
-- Ở bước viết lại câu hỏi, tối đa 3 nghĩa ứng viên của mỗi viết tắt được nối vào **user message** để Haiku chọn theo ngữ cảnh. System prompt không đổi, nên câu hỏi không có viết tắt vẫn trúng cache.
-- Khi có bước viết lại, BM25 trên câu gốc chỉ mở viết tắt một nghĩa. Ở chế độ `--offline`, BM25 mở mọi nghĩa có trong corpus.
+- **Viết tắt đã biết / viết tắt lạ.** Các mục soạn tay (nguồn `manual`, gồm `t1`…`t12`) là viết tắt đã biết, đã được giải thích trong prompt viết lại câu hỏi:
+  - không sinh gợi ý cho chúng;
+  - BM25 chỉ mở chúng theo nghĩa soạn tay đầu tiên (`hv` → học viện, `dk` → đăng ký, `t5` → tháng 5), đúng như bản trước khi có từ điển.
+- Với viết tắt lạ (`bn`, `bh`, `trc`, `chx`...), tối đa 3 nghĩa ứng viên được nối vào **user message** của bước viết lại để Haiku chọn theo ngữ cảnh. System prompt không đổi.
+- Khi có bước viết lại, BM25 trên câu gốc chỉ mở viết tắt lạ có một nghĩa. Các nghĩa trùng nhau sau khi bỏ dấu ("học viện" / "học viên") được gộp làm một. Ở chế độ `--offline`, BM25 mở mọi nghĩa có trong corpus.
+
+Bản đầu tiên (commit `9a26c03`) gợi ý cho **mọi** viết tắt, kể cả `ko`, `hv`, `mm`, và Public tụt từ 88.64 xuống **87.96**: retrieval giảm từ 93.75 xuống 92.59, generation giảm từ 83.53 xuống 83.32.
+- Đúng 17/42 câu Public có gợi ý, và đúng 17 câu đó có câu trả lời thay đổi.
+- Mọi gợi ý đều là viết tắt Haiku đã hiểu đúng. Gợi ý chỉ làm user message khác đi, nên bản viết lại bị xáo trộn ngẫu nhiên. Ví dụ ở public-0012, LLM hiểu "bên code" thành CLB Lập Trình.
+
+Sau khi chỉ gợi ý viết tắt lạ:
+- tập từ khóa BM25 trùng khớp với bản 88.64 trên cả 42 câu Public và 126 câu train;
+- 42/42 câu trả lời Public giống hệt bản 88.64, vì dùng lại cache.
 
 Để đo việc chống overfit, bộ [`eval/abbrev_dev.jsonl`](../eval/abbrev_dev.jsonl) gồm 27 câu viết tắt / không dấu, soạn trực tiếp từ corpus (không dựa vào câu hỏi train hay public), trong đó có 5 câu đa nghĩa (`t5`, `hv`, `tt`). Kết quả retrieval của `scripts/eval_retrieval.py` (chưa tính bước LLM chọn đoạn):
 
-| Bộ câu hỏi | Chế độ | Từ điển soạn tay | Từ điển dataset + gợi ý |
-|---|---|---:|---:|
-| train (122) | `--offline` | 0.805 | 0.805 |
-| train (122) | đầy đủ | 0.884 | **0.888** |
-| dev viết tắt (27) | `--offline` | 0.715 | **0.766** |
-| dev viết tắt (27) | đầy đủ | 0.836 | **0.870** |
+| Bộ câu hỏi | Chế độ | Từ điển soạn tay | Gợi ý mọi viết tắt (`9a26c03`) | Chỉ gợi ý viết tắt lạ (hiện tại) |
+|---|---|---:|---:|---:|
+| train (122) | `--offline` | 0.805 | 0.805 | 0.805 |
+| train (122) | đầy đủ | 0.884 | 0.888 | 0.884 |
+| dev viết tắt (27) | `--offline` | 0.715 | 0.766 | **0.766** |
+| dev viết tắt (27) | đầy đủ | 0.836 | 0.870 | **0.847** |
+| Public (42) | nộp bài | 88.64 | 87.96 | = 88.64 (câu trả lời giống hệt) |
 
-Phần tăng chủ yếu đến từ các viết tắt mà từ điển soạn tay không có (`bn`, `bh`, `trc`, `chx`, `lm`, `fb`, `vs`): nhóm "viết tắt" của dev tăng từ 0.848 lên 0.925. Nhóm đa nghĩa (5 câu) chưa cải thiện. Ví dụ, LLM hiểu `t5 ... co sinh hoat` là "tháng 5" chứ không phải "thứ 5", vì bản thân câu hỏi mơ hồ.
+- Phần tăng trên dev đến từ các viết tắt mà từ điển soạn tay không có (`bn`, `bh`, `trc`, `chx`, `lm`, `fb`).
+- Bản hiện tại kém bản gợi ý mọi viết tắt trên dev (0.847 so với 0.870), nhưng không làm xáo trộn câu hỏi chỉ chứa viết tắt quen thuộc, vốn chiếm toàn bộ Public.
+- Nhóm đa nghĩa (5 câu) chưa cải thiện. Ví dụ, LLM hiểu `t5 ... co sinh hoat` là "tháng 5" chứ không phải "thứ 5", vì bản thân câu hỏi mơ hồ.
 
 ## 4. Cách chạy
 

@@ -39,6 +39,9 @@ MANUAL = {
 _VULGAR = "địt lồn cặc buồi đéo đụ đếch"
 _VULGAR_TOKENS = "dm dmm dcm dkm vl vcl vkl cc clgt cl cmm vcc vc dml"
 VULGAR, VULGAR_TOKENS = frozenset(_VULGAR.split()), frozenset(_VULGAR_TOKENS.split())
+VULGAR_PHRASES = ("súc vật", "chó chết", "mặt lồn")
+# Chữ thay thế hay gặp trong teencode: chữ của viết tắt -> các chữ nó có thể thay trong từ chuẩn
+_TEENCODE = {"k": "kc", "f": "fp", "j": "jgd", "z": "zdvg", "w": "wqu", "x": "xaus"}
 
 
 def read_pairs(folder: Path, src: str, dst: str) -> list[tuple[str, str]]:
@@ -83,6 +86,16 @@ def _is_subsequence(short: str, long: str) -> bool:
     return all(ch in it for ch in short)
 
 
+def matches_first_letter(token: str, plain: str) -> bool:
+    """Nghĩa nhiều âm tiết phải bắt đầu bằng chữ đầu của viết tắt (tính cả chữ thay thế teencode).
+
+    Loại các nhãn lỗi do phép căn chuỗi gộp nhầm từ đứng trước: `dc` -> "bang duoc",
+    `post` -> "bai dang". Nghĩa một âm tiết thì không xét, vì teencode biến đổi chữ tự do
+    (`iu` -> "yêu", `mk` -> "mình", `bh` -> "bây giờ" vẫn hợp lệ).
+    """
+    return " " not in plain or plain[0] in _TEENCODE.get(token[0], token[0])
+
+
 def syllable_counts(pairs: list[tuple[str, str]]) -> Counter[str]:
     """Tần suất âm tiết (bỏ dấu) trong các câu chuẩn: dùng làm từ vựng tiếng Việt."""
     return Counter(strip_accents(t) for _, target in pairs for t in tokenize(target))
@@ -95,12 +108,17 @@ def build(
     counts: dict[str, Counter[str]] = defaultdict(Counter)  # token -> nghĩa bỏ dấu -> số lần
     spelling: dict[str, Counter[str]] = defaultdict(Counter)  # nghĩa bỏ dấu -> cách viết có dấu
     origin: dict[tuple[str, str], str] = {}
+    rejected: list[tuple[str, str]] = []
     for (token, phrase), n in (yammdd + vilexnorm).items():
         in_vln = vilexnorm[token, phrase] > 0
         if not in_vln and yammdd[token, phrase] < min_count:
             continue
         plain = strip_accents(phrase)
-        if token in VULGAR_TOKENS or VULGAR & set(phrase.split()):
+        if (
+            token in VULGAR_TOKENS
+            or VULGAR & set(phrase.split())
+            or any(p in phrase for p in VULGAR_PHRASES)
+        ):
             continue
         # Token có chữ số, hoặc bản thân là một âm tiết phổ biến (nhin, ca), không phải viết tắt
         if not token.isalpha() or vocab[token] >= 50:
@@ -109,6 +127,9 @@ def build(
         if any(vocab[s] < 20 for s in plain.split()):
             continue
         if not in_vln and is_typo(token, plain):
+            continue
+        if not matches_first_letter(token, plain):
+            rejected.append((token, phrase))
             continue
         counts[token][plain] += n
         spelling[plain][phrase] += n
@@ -126,6 +147,10 @@ def build(
     for n in range(1, 13):
         phrases = [f"tháng {n}", f"thứ {n}"] if 2 <= n <= 7 else [f"tháng {n}"]
         table[f"t{n}"] = [(p, "manual") for p in phrases]
+    print(
+        f"Loại {len(rejected)} nghĩa nhiều âm tiết không bắt đầu bằng chữ đầu của viết tắt:",
+        rejected,
+    )
     return table
 
 
