@@ -24,7 +24,7 @@ from neorag.data import Document
 from neorag.llm import LLMClient
 from neorag.pipelines.base import RAGOutput, RAGPipeline
 from neorag.pipelines.baseline import GatewayEmbedder
-from neorag.retrieval import BM25, expand_query, rrf, strip_accents
+from neorag.retrieval import BM25, Abbreviations, expand_query, rrf, strip_accents
 
 # Mã CLB dùng trong prompt viết lại câu hỏi -> giá trị trường `club` trong corpus
 CLUBS = {
@@ -76,6 +76,8 @@ Ví dụ về văn phong câu trả lời:
   TRẢ LỜI: CLB Lập Trình PTIT (PROPTIT) được thành lập ngày 09/10/2011, với phương châm hoạt động "Chia sẻ để cùng nhau phát triển".
 - Hỏi: "Phí hoặc quỹ hằng tháng khi tham gia CLB Multimedia PTIT là bao nhiêu?"
   TRẢ LỜI: Tài liệu hiện có không có thông tin về phí hoặc quỹ của CLB Multimedia PTIT, nên mình không thể trả lời chính xác câu hỏi này."""
+
+HINTS_HEADER = "Gợi ý viết tắt (có thể sai, hãy chọn theo ngữ cảnh hoặc bỏ qua):"
 
 ANSWER_USER = """TÀI LIỆU:
 {context}
@@ -165,7 +167,10 @@ class HybridPipeline(RAGPipeline):
     def index(self, corpus: list[Document]) -> None:
         self.docs = corpus
         self.by_id = {d.id: d for d in corpus}
-        self.bm25 = BM25([f"{d.club} {d.topic} {d.text}" for d in corpus])
+        texts = [f"{d.club} {d.topic} {d.text}" for d in corpus]
+        self.bm25 = BM25(texts)
+        # nghĩa viết tắt có trong corpus được xếp trước, nhưng không nghĩa nào bị bỏ
+        self.abbrevs = Abbreviations.load().rank_by_corpus(texts)
         if self.dense:
             self.doc_vectors = self.embedder.embed([d.text for d in corpus])
 
@@ -176,14 +181,24 @@ class HybridPipeline(RAGPipeline):
     def plan(self, query: str) -> QueryPlan:
         if not self.rewrite:
             return QueryPlan(query, clubs=detect_clubs(query))
-        return parse_plan(query, self._chat(REWRITE_SYSTEM, query))
+        return parse_plan(query, self._chat(REWRITE_SYSTEM, self._rewrite_user(query)))
+
+    def _rewrite_user(self, query: str) -> str:
+        """Câu hỏi kèm các nghĩa ứng viên của viết tắt; không có viết tắt thì giữ nguyên câu hỏi."""
+        lines = [
+            f"- {token}: " + " | ".join(f"{s} (giữ nguyên)" if s == token else s for s in senses)
+            for token, senses in self.abbrevs.hints(query)
+        ]
+        return "\n".join([query, "", HINTS_HEADER, *lines]) if lines else query
 
     def retrieve(self, plan: QueryPlan) -> list[Document]:
         """Toàn bộ corpus, xếp theo điểm RRF giảm dần."""
         queries = plan.search_queries
         rankings, weights = [], []
         for q in queries:
-            rankings.append(list(np.argsort(-self.bm25.scores(expand_query(q)))))
+            # có bước viết lại thì để LLM chọn nghĩa của viết tắt đa nghĩa, BM25 chỉ mở viết tắt một nghĩa
+            expanded = expand_query(q, self.abbrevs, ambiguous=not self.rewrite)
+            rankings.append(list(np.argsort(-self.bm25.scores(expanded))))
             weights.append(1.0)
         # bge-m3 hiểu kém câu viết không dấu, nên chỉ embed các truy vấn có dấu
         accented = [q for q in queries if strip_accents(q) != q]

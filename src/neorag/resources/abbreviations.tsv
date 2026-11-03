@@ -1,0 +1,625 @@
+# Từ điển viết tắt (cột 1 đã bỏ dấu), sinh bởi scripts/build_abbreviations.py.
+# Nguồn: yammdd/vietnamese-error-correction-corpus (Hugging Face, MIT);
+# ViLexNorm (Nguyen et al., EACL 2024, https://github.com/ngxtnhi/ViLexNorm,
+# CC BY-NC-SA 4.0); manual = soạn tay. Cột: viết tắt, các nghĩa (|), nguồn từng nghĩa.
+aba	anh ba	yammdd
+ace	anh chị em	both
+ae	anh em	both
+ah	anh	both
+aiu	anh yêu	both
+any	người yêu	both
+as	ánh sáng	both
+avt	avatar	yammdd
+bag	bằng	both
+bake	bắc kỳ	yammdd
+bama	ba má	both
+bame	ba mẹ	both
+baoh	bao giờ	both
+bayh	bây giờ	both
+bb	bạn bè	both
+bcao	báo cáo	both
+bcn	ban chủ nhiệm	manual
+bcs	bao cao su	yammdd
+bcuoi	buồn cười	both
+bd	bắt đầu	both
+bds	bất động sản	both
+bede	bê đê	both
+belike	be like	yammdd
+bg	bây giờ|bao giờ	both|both
+bgio	bây giờ|bao giờ	both|both
+bh	bây giờ|bao giờ|bảo hiểm	both|both|both
+bhl	ban huấn luyện	both
+bhyt	bảo hiểm y tế	both
+bic	biết	both
+bik	biết	both
+bin	đánh|bình	both|both
+bit	biết|búyt	both|both
+bjk	biết	both
+bjo	bao giờ	both
+bk	biết	both
+bm	ba mẹ	both
+bme	ba mẹ|bố mẹ	both|both
+bn	bạn|bao nhiêu|bệnh nhân	both|both|both
+bnh	bao nhiêu	both
+bnhieu	bao nhiêu	both
+bnhiu	bao nhiêu	both
+bno	bọn nó	both
+bs	bác sĩ	both
+bsi	bác sĩ	both
+bt	biết|bình thường|bài tập	both|both|both
+bth	bình thường	both
+bthf	bình thường	both
+bthg	bình thường	both
+bthuong	bình thường	both
+btong	bê tông	both
+btrai	bạn trai	both
+buedue	bê đê	both
+bug	bung	both
+bv	bệnh viện|bảo vệ	both|both
+bvs	băng vệ sinh	both
+bx	bến xe	both
+bxa	bà xã	both
+cacban	các bạn	yammdd
+cafe	cà phê	both
+cb	chuẩn bị|các bạn|chuyện bọn|cơ bản	both|both|both|vilexnorm
+cban	các bạn	both
+cbi	chuẩn bị	both
+cbj	chuẩn bị	both
+cccd	căn cước công dân	both
+cd	con đĩ|cuộc đời	both|both
+cdm	cộng đồng mạng	both
+cdoi	cuộc đời	both
+cdv	cổ động viên	both
+ce	chị em	both
+cf	cà phê	both
+cg	cũng	both
+cgai	con gái	both
+cgi	cái gì	both
+cgiac	cảm giác	both
+ch	chưa|chuyện|chồng|học	both|both|both|yammdd
+cheo	triệu	both
+chetme	chết mẹ	both
+chg	chẳng	both
+chiatay	chia tay	both
+chit	chích	both
+chn	chuyện	yammdd
+chs	chơi	both
+cht	chết	both
+chta	chúng ta	both
+chtme	chết mẹ	both
+chtranh	chiến tranh	both
+chug	chúng	both
+chun	chúng	both
+chuyn	chuyện	both
+chx	chưa|chuyện|chúng	both|yammdd|both
+ci	chị|cái	both|both
+cj	chị|cái gì	both|both
+ck	chồng|chuyển khỏan|chợ	both|both|both
+ckx	chuyện	both
+cm	con mẹ|chúng mày|comment|chứng minh	yammdd|both|yammdd|both
+cmay	chúng mày	both
+cme	con mẹ	both
+cminh	chứng minh	both
+cmn	con mẹ nó	both
+cmnl	con mẹ nó luôn	yammdd
+cmnr	con mẹ nó rồi	yammdd
+cn	chủ nhiệm|chủ nhật|công nghệ	manual|manual|both
+cnguoi	con người	both
+cno	chúng nó	both
+cobe	cô bé	both
+cocc	con ông cháu cha	yammdd
+cog	công	both
+concho	con chó	both
+cs	cộng sản|cuộc sống	yammdd|both
+csoc	chăm sóc	both
+csong	cuộc sống	both
+csvn	cộng sản việt nam	yammdd
+ct	chia tay|chương trình	both|yammdd
+cta	chúng ta	both
+ctay	chia tay	both
+cto	chứng tỏ	both
+ctoi	chúng tôi	both
+ctr	chiến tranh	both
+ctrai	con trai	both
+ctrinh	chương trình	both
+ctruong	công trường	both
+cty	công ty	both
+cudon	cô đơn	both
+cug	cũng	both
+cui	cười	both
+cun	cũng	both
+cux	cũng	both
+cv	công việc	both
+cviec	công việc	both
+cx	cũng	both
+cxuc	cảm xúc	both
+cy	chị	both
+dag	đang	both
+dah	đánh	both
+dangiu	đang yêu	both
+dangyeu	đang yêu	both
+dc	được|bằng được	manual|both
+dcd	được	both
+dchi	địa chỉ	both
+dcs	đảng cộng sản	yammdd
+ddc	được	yammdd
+deptrai	đẹp trai	both
+dethuong	dễ thương	yammdd
+dfc	được	both
+dg	đường|đang	both|both
+dim	điểm	both
+din	điên|đỉnh	both|both
+diu	điều	both
+dk	đăng ký|điều kiện|được|đúng không|đăng kí|được không	manual|manual|both|both|both|both
+dki	đăng kí	both
+dkien	điều kiện	both
+dko	đúng không	both
+dl	đà lạt	yammdd
+dlike	dislike	yammdd
+dlv	dư luận viên	yammdd
+dnay	dạo này	both
+dnh	đánh	both
+dog	đồng	both
+dp	đẹp	both
+dpt	đa phương tiện multimedia	manual
+dr	đúng rồi	both
+ds	danh sách	both
+dsq	đại sứ quán	both
+dth	dễ thương|điện thọai	both|both
+dthg	dễ thương	both
+dthoai	điện thọai	both
+dthw	dễ thương	both
+dtrai	đẹp trai	both
+dug	đúng	both
+dum	giùm|đúng	both|both
+dun	đúng	both
+dv	diễn viên|động vật	both|both
+dvien	diễn viên	both
+dx	được	both
+dz	đẹp trai|dễ thương	both|both
+dzai	đẹp trai	both
+ebe	em bé	both
+embe	em bé	both
+ew	yêu	both
+exp	kinh nghiệm	vilexnorm
+ezai	em trai	both
+fa	phá	yammdd
+face	facebook	yammdd
+fai	phải	both
+fam	phạm	yammdd
+fao	pháo	yammdd
+fap	pháp	yammdd
+fat	phát	yammdd
+fau	phẫu	yammdd
+fb	facebook	both
+fep	phép	yammdd
+fi	phí	yammdd
+fia	phía	yammdd
+fien	phiên	yammdd
+fieu	phiếu	yammdd
+filippines	philippines	yammdd
+fim	phim	both
+fo	phó	both
+fong	phòng	yammdd
+ft	phát	yammdd
+fu	phụ	yammdd
+fuc	phục	yammdd
+fuoc	phước	yammdd
+fuong	phương	yammdd
+fut	phút	yammdd
+g	giờ	both
+gdinh	gia đình	yammdd
+ge	ghê	both
+gen	ghen	both
+get	ghét	both
+gg	google	yammdd
+gotbnhu	gọt như	both
+gr	group	yammdd
+gs	gia sư	both
+gthieu	giới thiệu	both
+gv	giáo viên	both
+gvien	giáo viên	both
+hb	học bổng	both
+hc	học	both
+hcb	huy chương bạc	both
+hcv	huy chương vàng	both
+hd	hoạt động|hướng dẫn|hành động	manual|manual|both
+hdqt	hội đòng quản trị	both
+hdv	hướng dẫn viên	both
+hem	không	both
+hg	không	both
+him	hiểm	both
+hin	hiện	both
+hiu	hiểu	both
+hk	không|học|hồng kông|học kỳ|hàng không	both|both|yammdd|both|both
+hnao	hôm nào	both
+hnay	hôm nay	both
+hog	không	both
+hok	không|hông	both|both
+hongkong	hồng kông	yammdd
+honk	không	both
+hoq	không	both
+hoy	thôi	both
+hp	hạnh phúc|học phí	both|both
+hq	hàn quốc|hôm qua	yammdd|both
+hqua	hôm qua	both
+hs	học sinh|hồ sơ	both|both
+hsau	hôm sau	both
+ht	hết	both
+htrc	hôm trước	yammdd
+hum	không|hông	both|both
+hv	học viện|học viên	manual|manual
+hx	hàng xóm	both
+hxua	hồi xưa	both
+ib	inbox	yammdd
+ifone	iphone	yammdd
+ik	mình đi	both
+inb	inbox	yammdd
+iu	yêu	both
+j	gì	manual
+ja	già	both
+jo	giờ	both
+jz	gì vậy	both
+k	không	manual
+ka	kìa|quá	both|both
+kb	không biết|không bạn	both|both
+kbg	không bao giờ	both
+kbiet	không biết	both
+kbt	không biết	both
+kcn	kem chống nắng|khu công nghiệp	both|both
+kco	không có	both
+kh	không	both
+khg	không	yammdd
+khog	không	both
+khom	không	both
+khonnan	khốn nạn	both
+khs	không hiểu sao	both
+khug	khùng	both
+khum	không|khùng	both|both
+khun	không	both
+kicm	k icm	yammdd
+kiu	kiểu	both
+kn	kinh nghiệm	both
+ko	không	manual
+kog	không	both
+koi	chơi	yammdd
+kok	không	yammdd
+kp	không phải	both
+kphai	không phải	both
+kq	kết quả	both
+ks	khách sạn|kỹ sư	both|both
+ksao	không sao	both
+kt	kinh tế|kiểm tra	both|both
+kte	kinh tế	both
+kthuc	kiến thức	both
+ktr	kiểm tra	both
+ktra	kiểm tra	both
+ktx	ký túc xá	both
+kui	cười	both
+kungfu	công phu	both
+kv	khu vực	both
+lah	lạnh	both
+lg	lương	both
+lgi	làm gì	both
+lh	liên hệ	yammdd
+lk	lúc	both
+lm	làm	both
+lmht	liên minh huyền thọai	yammdd
+lmj	làm gì	both
+ln	luôn	both
+lol	l n	yammdd
+lp	lớp	both
+lsao	làm sao	both
+lsu	lịch sự	both
+lt	lập trình	manual
+ltinh	linh tinh	both
+ltung	lung tung	both
+lun	luôn	both
+luog	lương	both
+lzi	làm gì	both
+mag	măng	both
+mapmo	mập mờ	both
+matday	mất dạy	both
+matui	mà tui	both
+matxa	mát xa	both
+md	mấy đứa|mất dạy	both|yammdd
+mh	mình|minh hiếu|màn hình	both|yammdd|both
+mieg	miếng	both
+mih	mình	both
+mik	mình	both
+ming	miếng	both
+mjk	mình	yammdd
+mk	mình	both
+mm	multimedia	manual
+mn	mọi người|miền nam	both|yammdd
+mng	mọi người	both
+mnguoi	mọi người	both
+moto	mô tô	both
+mpc	multimedia	manual
+mqh	mối quan hệ	both
+ms	mới	both
+mt	môi trường	both
+mtq	mạnh thường quân	both
+mun	muốn|mình	both|both
+mxh	mạng xã hội	both
+nag	nắng	both
+nc	nước|nói chuyện	both|both
+nch	nói chuyện|nói chung	both|both
+nchung	nói chung	both
+nchuyen	nói chuyện	both
+nd	nhân dân	yammdd
+ng	người|nguyễn|người khác	both|yammdd|both
+ngc	ngược	both
+nge	nghe	both
+ngeu	người yêu	both
+nghie	nghiện	both
+nghim	nghiệm	both
+nghip	nghiệp	both
+ngiu	người yêu	both
+ngk	người khác	both
+ngkhac	người khác	both
+ngouln	ngờ luôn	both
+ngt	người ta	both
+ngta	người ta|người ta bằng|người	both|both|both
+ngui	người	both
+ngv	ngữ văn	both
+ngy	người yêu	both
+ngyeu	người yêu	both
+ngyo	người yêu	both
+nh	nhiều|nhưng	both|both
+nhag	nhàng	both
+nheo	nhiều	both
+nhg	nhưng	both
+nhiu	nhiều	both
+nhm	nhưng mà	both
+nhma	nhưng mà	both
+nhug	nhưng	both
+nhum	nhuộm	both
+nhun	nhưng	both
+nhx	nhưng	both
+ni	này	both
+nim	niệm	both
+nj	này	both
+nk	nhiệm kỳ|nhưng|nữa	manual|both|both
+nkg	nhưng	yammdd
+nma	nhưng mà	both
+nn	nhà nước|ngôn ngữ	yammdd|both
+nnao	như nào	both
+nnay	như này	both
+ns	nói	both
+nsx	nhà sản xuất	both
+nt	nhắn tin|nhắn tim	both|both
+nta	người ta	both
+nthe	như thế	both
+ntin	nhắn tin	both
+ntn	như thế nào	manual
+nun	luôn	both
+nv	như vậy|nhân viên|nhân vật	both|both|both
+nvat	nhân vật	both
+nvay	như vậy	both
+nvien	nhân viên	both
+nx	nữa	both
+ny	người yêu|người	both|both
+nyc	người yêu cũ|nười yêu cũ	both|both
+nyeu	người yêu	both
+occho	óc chó	both
+of	của	both
+og	ông	both
+onl	online	yammdd
+oo	ông	yammdd
+oto	ô tô	both
+oxa	ông xã	both
+oy	rồi	both
+p	phải	both
+pai	phải	both
+pele	bê đê	both
+ph	phải|phụ huynh|phục	both|both|both
+phiu	phiếu	both
+pic	biết	both
+pih	bây giờ	both
+pik	biết	both
+pit	biết	both
+pk	phòng khám|phong kiến	both|both
+pn	phụ nữ	both
+post	bài đăng	yammdd
+pp	phương pháp	both
+pro	proptit	manual
+pt	biết|phổ thông	both|both
+ptich	phân tích	both
+ptr	phát triển	both
+ptrien	phát triển	both
+pun	buồn	both
+pv	phỏng vấn	both
+pvu	phục vụ	both
+px	phải	both
+q	quan	both
+qa	quá	both
+qai	quai	both
+qan	quan	both
+qay	quay	both
+qc	quảng cáo	yammdd
+qd	quyết định	both
+qen	quen	both
+qg	quốc gia	both
+qh	quang hải|quan hệ	yammdd|both
+qlai	quay lại	both
+qo	quá	both
+qq	quần què	both
+qs	quân sự	both
+qsu	quân sự	both
+qt	quan tâm	both
+qtam	quan tâm	both
+qtr	quá trời|quan trọng	both|both
+qtrg	quan trọng	both
+qtrong	quan trọng	both
+r	rồi|rượu	both|both
+rapz	rạp vậy	both
+ray	giãy	yammdd
+rieg	riêng	both
+rtc	trước	yammdd
+rtg	trong	yammdd
+run	rung	both
+sag	sáng	both
+saigon	sài gòn	yammdd
+sd	sử dụng	both
+sdt	số điện thọai	yammdd
+sem	thèm	both
+sg	sài gòn	yammdd
+sih	sinh	both
+siu	siêu	both
+sk	sự kiện|sức khỏe	manual|both
+sl	số lượng	both
+smartfone	smartphone	yammdd
+sn	sinh nhật|sinh năm|suy nghĩ	both|both|both
+snghi	suy nghĩ	both
+snhat	sinh nhật	both
+sog	sống	both
+sp	sản phẩm|sư phạm	both|both
+ss	sẵn sàng	both
+st	sơn tùng	yammdd
+stk	số tài khỏan	both
+stt	status	yammdd
+sv	sinh viên|súc vật	manual|both
+svien	sinh viên	both
+sx	sản xuất	both
+t1	tháng 1	manual
+t10	tháng 10	manual
+t11	tháng 11	manual
+t12	tháng 12	manual
+t2	tháng 2|thứ 2	manual|manual
+t3	tháng 3|thứ 3	manual|manual
+t4	tháng 4|thứ 4	manual|manual
+t5	tháng 5|thứ 5	manual|manual
+t6	tháng 6|thứ 6	manual|manual
+t7	tháng 7|thứ 7	manual|manual
+t8	tháng 8	manual
+t9	tháng 9	manual
+tb	trung bình	both
+tbao	thông báo	both
+tbcn	tư bản chủ nghĩa	yammdd
+tc	tình cảm	both
+tca	tất cả	both
+td	trần dần|thể dục	yammdd|both
+tfcm	tphcm	yammdd
+tg	thời gian|trong|thế giới|thằng	both|yammdd|yammdd|yammdd
+tgia	tham gia	both
+tgian	thời gian	both
+tgr	trong	yammdd
+th	thôi|thằng|thì	both|both|both
+thag	thằng	both
+thak	thằng	both
+thany	thần y	both
+thcs	trung học cơ sở	both
+then	thằng	both
+thg	thằng|thương	both|both
+thgian	thời gian	both
+thgioi	thế giới	both
+thic	thích	both
+thieunang	thiểu năng	both
+thik	thích	both
+thip	thiếp	both
+thiu	thiếu	both
+thk	thằng	both
+thobh	thơ bây giờ	both
+thp	tân hiệp phát	yammdd
+tht	thật|thiệt	both|both
+thun	thương	both
+thuog	thương	both
+thw	thương	both
+tih	tính	both
+time	thời gian	both
+tip	tiếp	both
+tiu	tiêu	both
+tk	thằng|tài khỏan|tiết kiệm|thế	both|both|both|both
+tl	trả lời	both
+tmai	thương mại	both
+tn	tin nhắn|thế nào|thế này|trắc nghiệm	both|both|both|both
+tnao	thế nào	both
+tnay	thế này	both
+tnhan	tin nhắn	both
+tnhien	tự nhiên	both
+tpho	thành phố	both
+tr	trời|triệu|trai|truyện	both|both|both|both
+trc	trước	both
+trg	trong|trường	both|both
+triu	triệu	both
+trk	trước	yammdd
+trl	trả lời	both
+trog	trong	both
+trug	trung	both
+trvia	trộm vía	both
+try	trai	both
+trym	stream	yammdd
+ts	tiến sĩ|tới|trà sữa	both|both|both
+tsao	tại sao	both
+tsn	tân sơn nhất	yammdd
+tsua	trà sữa	both
+tt	thông tin|truyền thông|thực tập	manual|manual|manual
+ttv	tuyển thành viên	manual
+tua	chưa	both
+tuog	tưởng	both
+tus	status	yammdd
+tuyt	tuyệt	both
+tv	thành viên	manual
+tvi	ti vi	both
+txe	tài xế	both
+tyeu	tình yêu	both
+ultr	u là trời	both
+ume	u mê	yammdd
+un	uống	both
+ungthu	ưng thư	both
+ut	cứt	both
+v	vậy	manual
+vaynhir	vậy nhỉ	both
+vcd	vãi cả đái	yammdd
+vch	vãi chưởng	both
+vck	vợ chồng	both
+vd	vãi đái|ví dụ|video|vấn đề|vãi đáy	yammdd|both|yammdd|both|both
+vdap	vấn đáp	both
+vde	vấn đề	both
+vdv	vận động viên	both
+vid	video	yammdd
+vkck	vợ chồng	both
+vlin	vãi lìn	yammdd
+vnch	việt nam cộng hòa	yammdd
+vp	văn phòng	both
+vs	với	manual
+vsinh	vệ sinh	both
+vt	viết	both
+vv	vui vẻ	yammdd
+w	với	both
+wa	quá	both
+wan	quan	yammdd
+wang	quảng	yammdd
+way	quay	yammdd
+we	quê|quá	both|both
+wen	quen	yammdd
+woc	quốc	yammdd
+wy	qúy	yammdd
+wyen	quyền	yammdd
+wyet	quyết	yammdd
+xd	xác định	both
+xg	xong|xuống	both|both
+xh	xã hội	both
+xhcn	xã hội chủ nghĩa	yammdd
+xinloi	xin lỗi	both
+xl	xin lỗi|xin l ỗi	both|both
+xn	xét nghiệm	both
+xog	xong	both
+xun	xuống	both
+xuog	xuống	both
+yang	giang	both
+yangho	giang hồ	both
+z	vậy	both
+za	già	both
+zai	trai	both
+zang	giang	both
+zau	giàu	both
+zi	vậy|với	both|both
+zien	nhiên|duyên	yammdd|yammdd
+zkck	vợ chồng	both
+zn	cảm	both
+zoi	trời|giời	both|both
+zong	giống	both
+zs	với	both
+zz	vậy	both

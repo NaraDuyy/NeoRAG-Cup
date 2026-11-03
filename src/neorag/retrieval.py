@@ -10,6 +10,7 @@ import math
 import re
 import unicodedata
 from collections import Counter
+from pathlib import Path
 
 import numpy as np
 
@@ -27,27 +28,83 @@ _STOPWORDS = (
 STOPWORDS = frozenset(_STOPWORDS.split())
 
 
-# Viết tắt hay gặp trong câu hỏi (đã bỏ dấu) -> cụm từ đầy đủ dùng trong corpus
-_ABBREVIATIONS = {
-    "mm": "multimedia", "mpc": "multimedia", "dpt": "da phuong tien multimedia",
-    "lt": "lap trinh", "pro": "proptit", "tv": "thanh vien", "ttv": "tuyen thanh vien",
-    "nk": "nhiem ky", "cn": "chu nhiem", "bcn": "ban chu nhiem", "hv": "hoc vien",
-    "dk": "dang ky", "dc": "duoc", "sv": "sinh vien", "j": "gi", "v": "vay",
-    "ko": "khong", "k": "khong", "ntn": "nhu the nao", "sk": "su kien",
-}  # fmt: skip
+RESOURCE = Path(__file__).parent / "resources" / "abbreviations.tsv"
+
+
+class Abbreviations:
+    """Từ điển viết tắt (đã bỏ dấu) -> các nghĩa có thể, xem scripts/build_abbreviations.py.
+
+    Không bỏ nghĩa nào: `rank_by_corpus` chỉ đưa các nghĩa xuất hiện trong corpus lên trước
+    (kể cả chính token nếu nó là một từ trong corpus, ví dụ "cv" trong "vòng CV").
+    """
+
+    def __init__(self, table: dict[str, list[str]]):
+        self.table = table
+        self.in_corpus: dict[str, list[str]] = {}
+
+    @classmethod
+    def load(cls, path: Path = RESOURCE) -> Abbreviations:
+        table = {}
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line and not line.startswith("#"):
+                token, senses, *_ = line.split("\t")
+                table[token] = senses.split("|")
+        return cls(table)
+
+    def rank_by_corpus(self, texts: list[str]) -> Abbreviations:
+        haystack = " " + " ".join(strip_accents(t) for x in texts for t in tokenize(x)) + " "
+        for token, senses in self.table.items():
+            found = [s for s in senses if f" {strip_accents(s)} " in haystack]
+            if f" {token} " in haystack and token not in senses:
+                # bản thân token là một từ trong corpus (cv, gen): giữ nguyên cũng là một nghĩa
+                senses, found = [token, *senses], [token, *found]
+            self.in_corpus[token] = found
+            self.table[token] = found + [s for s in senses if s not in found]
+        return self
+
+    def senses(self, token: str) -> list[str]:
+        return self.table.get(token, [])
+
+    def bm25_senses(self, token: str) -> list[str]:
+        """Nghĩa dùng để mở rộng câu hỏi cho BM25: nghĩa có trong corpus nếu đã xếp theo corpus."""
+        return self.in_corpus.get(token, self.senses(token))
+
+    def hints(self, query: str, limit: int = 3) -> list[tuple[str, list[str]]]:
+        """Các viết tắt có trong câu hỏi và tối đa `limit` nghĩa của mỗi viết tắt."""
+        tokens = dict.fromkeys(strip_accents(t) for t in tokenize(query))
+        return [(t, self.senses(t)[:limit]) for t in tokens if t in self.table]
+
+
+_DEFAULT: Abbreviations | None = None
+
+
+def default_abbreviations() -> Abbreviations:
+    global _DEFAULT
+    if _DEFAULT is None:
+        _DEFAULT = Abbreviations.load()
+    return _DEFAULT
+
+
 # Cách gọi tên CLB không chính thức -> tên trong corpus
 _CLUB_ALIASES = [
     (re.compile(r"\bclb (?:lam )?game\b|\bnha sang tao game\b"), "gcc nha sang tao game"),
     (re.compile(r"\bclb (?:da phuong tien|multimedia|mm)\b"), "multimedia"),
     (re.compile(r"\bclb (?:code|lap trinh|lt)\b"), "lap trinh proptit"),
-    (re.compile(r"\bt(1[0-2]|[1-9])\b"), r"thang \1"),
 ]
 
 
-def expand_query(query: str) -> str:
-    """Thêm dạng đầy đủ của viết tắt và tên CLB không chính thức vào câu hỏi (dùng cho BM25)."""
-    plain = " ".join(strip_accents(t) for t in tokenize(query))
-    extra = [_ABBREVIATIONS[t] for t in plain.split() if t in _ABBREVIATIONS]
+def expand_query(query: str, abbrevs: Abbreviations | None = None, ambiguous: bool = True) -> str:
+    """Thêm dạng đầy đủ của viết tắt và tên CLB không chính thức vào câu hỏi (dùng cho BM25).
+
+    `ambiguous=False` bỏ qua viết tắt có nhiều nghĩa, để bước viết lại câu hỏi bằng LLM chọn nghĩa.
+    """
+    abbrevs = abbrevs or default_abbreviations()
+    plain = " ".join(strip_accents(t) for t in tokenize(query)).replace("cau lac bo", "clb")
+    extra = []
+    for token in plain.split():
+        senses = abbrevs.bm25_senses(token)
+        if ambiguous or len(senses) == 1:
+            extra += senses
     for pattern, replacement in _CLUB_ALIASES:
         extra += [m.expand(replacement) for m in pattern.finditer(plain)]
     return " ".join([query, *extra])

@@ -3,6 +3,7 @@ import json
 from conftest import FakeEmbedder, FakeLLM
 from neorag.data import Query
 from neorag.pipelines.hybrid import (
+    HINTS_HEADER,
     REWRITE_SYSTEM,
     HybridPipeline,
     detect_clubs,
@@ -10,14 +11,34 @@ from neorag.pipelines.hybrid import (
     parse_plan,
 )
 from neorag.predict import predict
-from neorag.retrieval import BM25, expand_query, rrf, strip_accents
+from neorag.retrieval import BM25, Abbreviations, expand_query, rrf, strip_accents
 
 
 def test_strip_accents_and_expand_query():
     assert strip_accents("Đội ngũ Lập Trình") == "Doi ngu Lap Trinh"
     expanded = expand_query("clb mm tuyen tv t10 ko")
-    assert "multimedia" in expanded and "thanh vien" in expanded and "thang 10" in expanded
+    assert "multimedia" in expanded and "thành viên" in expanded and "tháng 10" in expanded
     assert "gcc" in expand_query("clb lam game cua hv")
+    assert "gcc" in expand_query("câu lạc bộ game ptit")
+    assert "tháng 5" in expand_query("t5 co sinh hoat ko")
+    assert "tháng 5" not in expand_query("t5 co sinh hoat ko", ambiguous=False)
+
+
+def test_abbreviations_rank_by_corpus_keeps_every_sense():
+    abbrevs = Abbreviations({"t5": ["tháng 5", "thứ 5"], "cv": ["công việc"]})
+    abbrevs.rank_by_corpus(["Lịch sinh hoạt vào thứ 5 hằng tuần", "Vòng CV online"])
+    assert abbrevs.senses("t5") == ["thứ 5", "tháng 5"]
+    assert abbrevs.bm25_senses("t5") == ["thứ 5"]
+    # "cv" có trong corpus nên giữ nguyên cũng là một nghĩa
+    assert abbrevs.senses("cv") == ["cv", "công việc"]
+    assert abbrevs.hints("clb sinh hoat T5 ko") == [("t5", ["thứ 5", "tháng 5"])]
+    assert expand_query("t5", abbrevs, ambiguous=False) == "t5 thứ 5"
+
+
+def test_default_abbreviations_are_packaged():
+    abbrevs = Abbreviations.load()
+    assert len(abbrevs.table) > 100
+    assert {"tháng 5", "thứ 5"} <= set(abbrevs.senses("t5"))
 
 
 def test_bm25_matches_query_without_diacritics(corpus):
@@ -75,6 +96,19 @@ def test_hybrid_runs_end_to_end(corpus):
     assert sorted(preds[0].retrieved_ids) == [1, 2, 3]
     assert len(llm.calls) == 2  # viết lại câu hỏi + trả lời
     assert "[2] (CLB Multimedia PTIT" in llm.calls[1][1]["content"]
+
+
+def test_plan_adds_abbreviation_hints_to_user_message(corpus):
+    llm = FakeLLM(_responder)
+    pipeline = HybridPipeline(llm=llm, embedder=FakeEmbedder())
+    pipeline.index(corpus)
+    pipeline.plan("t5 clb mm co sinh hoat ko")
+    user = llm.calls[0][1]["content"]
+    assert user.startswith("t5 clb mm co sinh hoat ko\n\n" + HINTS_HEADER)
+    assert "- t5: " in user and "tháng 5" in user and "thứ 5" in user
+    pipeline.plan("CLB Multimedia PTIT thành lập ngày nào?")
+    assert llm.calls[1][1]["content"] == "CLB Multimedia PTIT thành lập ngày nào?"
+    assert llm.calls[0][0]["content"] == REWRITE_SYSTEM
 
 
 def test_hybrid_without_rewrite_or_dense(corpus):
