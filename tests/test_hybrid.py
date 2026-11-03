@@ -11,7 +11,7 @@ from neorag.pipelines.hybrid import (
     parse_plan,
 )
 from neorag.predict import predict
-from neorag.retrieval import BM25, Abbreviations, expand_query, rrf, strip_accents
+from neorag.retrieval import BM25, Abbreviations, expand_query, lexical_terms, rrf, strip_accents
 
 
 def test_strip_accents_and_expand_query():
@@ -65,6 +65,14 @@ def test_bm25_matches_query_without_diacritics(corpus):
     bm25 = BM25([d.text for d in corpus])
     assert int(bm25.scores("clb multimedia thanh lap ngay nao").argmax()) == 1
     assert bm25.scores("xyz").sum() == 0
+
+
+def test_uppercase_ai_is_a_keyword_not_a_stopword():
+    assert "ai_" in lexical_terms("cuộc thi AI nào")
+    assert "ai" not in lexical_terms("ai là chủ nhiệm") and "ai_" not in lexical_terms("ai làm")
+    bm25 = BM25(["Talkshow về xu hướng phát triển AI", "Hội thao cho thành viên"])
+    assert int(bm25.scores("talkshow ve AI").argmax()) == 0
+    assert bm25.scores("ai tổ chức").sum() == 0
 
 
 def test_rrf_prefers_items_ranked_high_everywhere():

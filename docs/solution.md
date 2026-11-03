@@ -78,7 +78,21 @@ Benchmark trên cả train tăng từ 0.9191 (v2) lên 0.9230 (v5). Tính riêng
 - **Bài học từ v4.** Khi câu không có đáp án mở đầu bằng điều tài liệu có ("Tài liệu chỉ cho biết ..."), judge Abstention không coi đó là từ chối trả lời (train-0049). Đề Public chỉ có 3 câu không có đáp án, nên sai 1 câu mất khoảng 2.8 điểm tổng. Vì vậy v5 bắt buộc câu từ chối phải đứng đầu.
 - **Mức chắc chắn của v5.** String Presence tăng rõ trên cả hai nửa. Nhưng ROUGE-L trên nửa hold không đổi, nên chưa đạt ngưỡng đề ra (hold ROUGE-L +0.02). Mức tăng tổng (khoảng +0.2 đến +0.4 điểm) nằm trong biên nhiễu của judge.
 
-Public Test: baseline 52.40, ngưỡng 53.40. HybridPipeline với prompt v2: **88.64**.
+### Thử nghiệm sau v5: retrieval nhiều đoạn, từ kết luận, key fact
+
+Trên train, v5 còn 8 câu có Recall@5 < 1. [`scripts/eval_final_retrieval.py`](../scripts/eval_final_retrieval.py) chấm `retrieved_ids` **cuối cùng**, sau khi LLM chọn đoạn. Khi prompt không đổi, script này trúng cache hoàn toàn nên không tốn API. Ngược lại, `eval_retrieval.py` chỉ chấm thứ hạng RRF.
+
+| Thử nghiệm | Kết quả | Giữ? |
+|---|---|---|
+| Xếp ngay sau các id LLM đã dùng các đoạn cùng `club` + `topic` với chúng (1–3 đoạn) | hold: Recall 0.966 → 0.966, NDCG 0.970 → 0.970; tune +0.002. Đoạn "anh em" chen cả đoạn không liên quan | Không |
+| Thêm vào danh sách ứng viên top 2–5 của từng bảng BM25 / dense, tối đa 14–20 đoạn | Độ phủ đoạn đúng trong ứng viên: 0.959 → 0.964 (top 3, thêm ~1.6 đoạn/câu) → 0.980 (top 5, thêm ~3.6 đoạn/câu) | Không: tốn token, phần lớn lợi ích đã có ở dòng dưới |
+| Giữ "AI" viết hoa làm từ khóa. Trước đây "ai" là stopword (đại từ "ai"), nên "cuộc thi AI" mất từ khóa chính | Đoạn 58 (Kalapa Challenge Medical) của train-0028 vào danh sách ứng viên. Retrieval cuối 0.982 → **0.9845**, Benchmark train 92.30 → **92.52** | **Có** |
+| Prompt v6: chỉ mở đầu "Có."/"Không." khi câu hỏi có dạng có/không và tài liệu nêu trực tiếp; nêu số lượng, ngày của mọi đối tượng so sánh, đúng vai trò người hỏi | Cùng retrieval đã sửa "AI": Benchmark 92.46 so với 92.52 của v5. Noise trên hold giảm 0.095 → 0.042, nhưng String Presence trên hold giảm 0.932 → 0.905 | Không |
+
+- Lỗi "AI" chỉ gặp ở các câu viết hoa "AI" (train-0028, train-0084, public-0009). Trên Public, top 5 của cả 42 câu không đổi; 2 câu trả lời đổi cách diễn đạt.
+- Lỗi lớn nhất còn lại là `relevant_ids` của BTC tính cả đoạn bổ trợ cùng chủ đề (train-0003 cần cả đoạn 34 "Tổng quan đào tạo"), trong khi LLM chỉ ghi đoạn nó trích. Ưu tiên đoạn "anh em" đã thử nhưng không có lợi trên hold.
+
+Public Test: baseline 52.40, ngưỡng 53.40. HybridPipeline với prompt v2: **88.64**, prompt v5: **89.14**.
 
 ### Từ điển viết tắt từ dataset ngoài
 
@@ -135,6 +149,7 @@ python scripts/eval_retrieval.py --offline       # chỉ BM25, không gọi API
 python scripts/eval_retrieval.py --no-rewrite    # thêm bge-m3
 python scripts/eval_retrieval.py                 # thêm bước viết lại câu hỏi
 python scripts/eval_retrieval.py --questions eval/abbrev_dev.jsonl   # bộ câu viết tắt riêng
+python scripts/eval_final_retrieval.py --show    # retrieved_ids cuối cùng, chia tune/hold
 
 # Sinh lại từ điển viết tắt (cần tải CSV của hai dataset về trước)
 python scripts/build_abbreviations.py --yammdd <thư mục> --vilexnorm <thư mục>

@@ -26,6 +26,7 @@ _STOPWORDS = (
     "mot hay hoac neu nhu de dang se rat lam"
 )
 STOPWORDS = frozenset(_STOPWORDS.split())
+_ACRONYM_AI = re.compile(r"\bAI\b")
 
 
 RESOURCE = Path(__file__).parent / "resources" / "abbreviations.tsv"
@@ -136,7 +137,8 @@ def strip_accents(text: str) -> str:
 
 def lexical_terms(text: str) -> list[str]:
     """Âm tiết bỏ dấu (trừ stopword) và bigram âm tiết."""
-    syllables = [strip_accents(t) for t in tokenize(text)]
+    # "AI" viết hoa là trí tuệ nhân tạo, không phải đại từ "ai" (stopword) sau khi về chữ thường
+    syllables = [strip_accents(t) for t in tokenize(_ACRONYM_AI.sub("AI_", text))]
     unigrams = [t for t in syllables if t not in STOPWORDS]
     bigrams = [f"{a}_{b}" for a, b in zip(syllables, syllables[1:], strict=False)]
     return unigrams + bigrams
