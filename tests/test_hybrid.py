@@ -2,7 +2,11 @@ import json
 
 from conftest import FakeEmbedder, FakeLLM
 from neorag.data import Query
+from neorag.fewshot import FewShotBank
 from neorag.pipelines.hybrid import (
+    ANSWER_SYSTEM,
+    ANSWER_SYSTEM_FEWSHOT,
+    EXAMPLES_HEADER,
     HINTS_HEADER,
     REWRITE_SYSTEM,
     HybridPipeline,
@@ -139,6 +143,48 @@ def test_plan_adds_abbreviation_hints_to_user_message(corpus):
     pipeline.plan("t10 clb mm co sinh hoat ko")
     assert llm.calls[1][1]["content"] == "t10 clb mm co sinh hoat ko"
     assert llm.calls[0][0]["content"] == REWRITE_SYSTEM
+
+
+def test_only_first_promoted_ids_lead(corpus):
+    llm = FakeLLM(lambda m: "ID: 3, 2\nTRẢ LỜI: GCC ra đời năm 2023.")
+    pipeline = HybridPipeline(n_promoted=1, rewrite=False, dense=False, llm=llm)
+    pipeline.index(corpus)
+    out = pipeline.run("clb multimedia thanh lap ngay nao")
+    rest = [d.id for d in pipeline.retrieve(pipeline.plan("clb multimedia thanh lap ngay nao"))]
+    assert out.retrieved_ids == [3, *(i for i in rest if i != 3)]
+
+
+def test_few_shot_bank_skips_same_query_and_limits_type():
+    rows = [
+        {"query": "CLB Multimedia thành lập ngày nào?", "answer": "a", "type": "trực tiếp"},
+        {"query": "Multimedia thành lập năm nào?", "answer": "b", "type": "trực tiếp"},
+        {"query": "Multimedia thành lập khi nào vậy", "answer": "c", "type": "trực tiếp"},
+        {"query": "Multimedia có mấy ban?", "answer": "d", "type": "so sánh"},
+        {"query": "Multimedia thành lập lúc nào", "answer": "", "type": "thiếu dữ liệu"},
+        {"query": "Multimedia tuyển ai", "answer": "e", "type": "x", "answerable": False},
+    ]
+    bank = FewShotBank(rows)
+    assert len(bank.rows) == 4  # bỏ câu không có đáp án
+    chosen = bank.select("clb multimedia THÀNH LẬP ngày nào?", k=3)
+    assert "a" not in [r["answer"] for r in chosen]  # trùng câu hỏi (sau normalize) bị bỏ
+    assert [r["type"] for r in chosen].count("trực tiếp") == 2
+    assert len(chosen) == 3
+
+
+def test_few_shot_examples_go_to_user_message(corpus):
+    llm = FakeLLM(_responder)
+    pipeline = HybridPipeline(few_shot=2, llm=llm, embedder=FakeEmbedder())
+    pipeline.index(corpus)
+    pipeline.run("clb mm thanh lap ngay nao")
+    system, user = (m["content"] for m in llm.calls[1])
+    assert system == ANSWER_SYSTEM_FEWSHOT
+    assert user.startswith(EXAMPLES_HEADER) and user.count("TRẢ LỜI:") == 2
+    assert user.index("TÀI LIỆU:") > user.index("TRẢ LỜI:")
+    # few_shot=0 giữ nguyên prompt cũ
+    pipeline.few_shot = 0
+    pipeline.run("clb mm thanh lap ngay nao")
+    assert llm.calls[3][0]["content"] == ANSWER_SYSTEM
+    assert llm.calls[3][1]["content"].startswith("TÀI LIỆU:")
 
 
 def test_hybrid_without_rewrite_or_dense(corpus):

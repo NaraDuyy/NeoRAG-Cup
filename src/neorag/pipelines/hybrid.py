@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from neorag.data import Document
+from neorag.fewshot import FewShotBank
 from neorag.llm import LLMClient
 from neorag.pipelines.base import RAGOutput, RAGPipeline
 from neorag.pipelines.baseline import GatewayEmbedder
@@ -47,7 +48,7 @@ Trả về DUY NHẤT một object JSON, không giải thích:
  "clubs": ["<mã các CLB câu hỏi nhắc tới; rỗng nếu không rõ>"],
  "sub_queries": ["<nếu câu hỏi có nhiều ý hoặc so sánh nhiều CLB: mỗi ý một câu hỏi ngắn độc lập; ngược lại để rỗng>"]}"""
 
-ANSWER_SYSTEM = """Bạn là trợ lý hỏi đáp về cộng đồng S2B tại Học viện Công nghệ Bưu chính Viễn thông (PTIT):
+ANSWER_RULES = """Bạn là trợ lý hỏi đáp về cộng đồng S2B tại Học viện Công nghệ Bưu chính Viễn thông (PTIT):
 CLB Lập Trình PTIT (ProPTIT), CLB Multimedia PTIT (MPC) và CLB Nhà Sáng Tạo Game PTIT (GCC).
 
 Quy tắc:
@@ -72,19 +73,41 @@ Quy tắc:
    định nào như thể đó là câu trả lời.
 9. Nếu câu hỏi có nhiều ý mà tài liệu chỉ có một phần: trả lời phần có, rồi nói ngắn gọn ý nào tài
    liệu không nêu ("tài liệu không có thông tin về ...").
-10. Nếu các nguồn ghi khác nhau, nêu cả hai và nguồn của từng thông tin.
+10. Nếu các nguồn ghi khác nhau, nêu cả hai và nguồn của từng thông tin."""
 
-Định dạng trả lời, đúng 2 phần:
-ID: <id các tài liệu đã dùng để trả lời, xếp từ quan trọng nhất, cách nhau bởi dấu phẩy; để trống nếu không dùng tài liệu nào>
-TRẢ LỜI: <câu trả lời>
+ANSWER_FORMAT = """Định dạng trả lời, đúng 2 phần:
+ID: <id các tài liệu có thông tin liên quan trực tiếp tới câu hỏi, cách nhau bởi dấu phẩy: tài liệu dùng để trả lời xếp trước, rồi tới tài liệu tổng quan hoặc bổ trợ cùng nội dung dù không trích; không ghi tài liệu chỉ trùng từ khóa mà nói về chuyện khác; để trống nếu không có tài liệu nào liên quan>
+TRẢ LỜI: <câu trả lời>"""
 
-Ví dụ về văn phong câu trả lời:
-- Hỏi: "CLB Lập Trình PTIT có hoạt động thể thao nào cho thành viên không?"
-  TRẢ LỜI: Có. CLB Lập Trình PTIT tổ chức PROPTIT Marathon, cuộc thi chạy của thành viên hưởng ứng tinh thần "Có sức khỏe là có tất cả", và tổ chức thêm Hội thao cho thành viên.
-- Hỏi: "Game "Đế Vương Phải Có Long Ngai" của GCC có bản cho điện thoại không?"
+EXAMPLE_ANSWER = """- Hỏi: "CLB Lập Trình PTIT có hoạt động thể thao nào cho thành viên không?"
+  TRẢ LỜI: Có. CLB Lập Trình PTIT tổ chức PROPTIT Marathon, cuộc thi chạy của thành viên hưởng ứng tinh thần "Có sức khỏe là có tất cả", và tổ chức thêm Hội thao cho thành viên."""
+
+EXAMPLE_ABSTAIN = """- Hỏi: "Game "Đế Vương Phải Có Long Ngai" của GCC có bản cho điện thoại không?"
   TRẢ LỜI: Tài liệu hiện có không có thông tin về bản cho điện thoại của trò chơi "Đế Vương Phải Có Long Ngai". Tài liệu chỉ cho biết trang itch.io của CLB Nhà Sáng Tạo Game PTIT (GCC) đăng trò chơi này (thể loại Action) với bản tải về cho Windows."""
 
+ANSWER_SYSTEM = f"""{ANSWER_RULES}
+
+{ANSWER_FORMAT}
+
+Ví dụ về văn phong câu trả lời:
+{EXAMPLE_ANSWER}
+{EXAMPLE_ABSTAIN}"""
+
+# Có ví dụ động (few-shot) thì chỉ giữ ví dụ tĩnh cho câu không có đáp án
+ANSWER_SYSTEM_FEWSHOT = f"""{ANSWER_RULES}
+11. Phần VÍ DỤ VĂN PHONG trong tin nhắn là các câu hỏi khác, chỉ để học cách viết (thứ tự ý, cách
+    mở đầu, độ dài); mọi thông tin trong câu trả lời chỉ được lấy từ TÀI LIỆU.
+
+{ANSWER_FORMAT}
+
+Ví dụ câu trả lời khi tài liệu không có thông tin:
+{EXAMPLE_ABSTAIN}"""
+
 HINTS_HEADER = "Gợi ý viết tắt (có thể sai, hãy chọn theo ngữ cảnh hoặc bỏ qua):"
+
+EXAMPLES_HEADER = (
+    "VÍ DỤ VĂN PHONG (câu hỏi khác, chỉ để tham khảo cách viết; KHÔNG dùng làm nguồn thông tin):"
+)
 
 ANSWER_USER = """TÀI LIỆU:
 {context}
@@ -151,6 +174,8 @@ class HybridPipeline(RAGPipeline):
         self,
         n_candidates: int = 12,
         n_retrieved: int = 10,
+        n_promoted: int = 5,
+        few_shot: int = 3,
         rewrite: bool = True,
         dense: bool = True,
         club_weight: float = 0.5,
@@ -161,6 +186,8 @@ class HybridPipeline(RAGPipeline):
     ):
         self.n_candidates = n_candidates  # số đoạn đưa vào prompt sinh câu trả lời
         self.n_retrieved = n_retrieved  # số đoạn trả về để chấm retrieval
+        self.n_promoted = n_promoted  # số id ở dòng `ID:` tối đa được đưa lên đầu
+        self.few_shot = few_shot  # số câu train giống nhất làm ví dụ văn phong; 0 là tắt
         self.rewrite = rewrite
         self.dense = dense
         self.club_weight = club_weight  # trọng số RRF của bảng xếp hạng chỉ gồm CLB được hỏi
@@ -178,6 +205,8 @@ class HybridPipeline(RAGPipeline):
         self.bm25 = BM25(texts)
         # nghĩa viết tắt có trong corpus được xếp trước, nhưng không nghĩa nào bị bỏ
         self.abbrevs = Abbreviations.load().rank_by_corpus(texts)
+        if self.few_shot:
+            self.examples = FewShotBank.load()
         if self.dense:
             self.doc_vectors = self.embedder.embed([d.text for d in corpus])
 
@@ -229,7 +258,13 @@ class HybridPipeline(RAGPipeline):
         if plan.rewritten and plan.rewritten.lower() != plan.query.lower():
             rewritten = f"\n(Câu hỏi đã chuẩn hóa: {plan.rewritten})"
         user = ANSWER_USER.format(context=context, query=plan.query, rewritten=rewritten)
-        reply = self._chat(ANSWER_SYSTEM, user)
+        system = ANSWER_SYSTEM
+        if self.few_shot:
+            examples = self.examples.select(plan.query, [plan.rewritten], k=self.few_shot)
+            lines = [f'- Hỏi: "{e["query"]}"\n  TRẢ LỜI: {e["answer"]}' for e in examples]
+            user = "\n".join([EXAMPLES_HEADER, *lines, "", user])
+            system = ANSWER_SYSTEM_FEWSHOT
+        reply = self._chat(system, user)
         return parse_answer(reply, {d.id for d in candidates})
 
     def run(self, query: str) -> RAGOutput:
@@ -238,5 +273,6 @@ class HybridPipeline(RAGPipeline):
         answer, used = self.answer(plan, ranked[: self.n_candidates])
         if not answer:
             answer = "Tài liệu hiện có không có thông tin để trả lời câu hỏi này."
-        retrieved = list(dict.fromkeys([*used, *(d.id for d in ranked)]))[: self.n_retrieved]
+        promoted = used[: self.n_promoted]
+        retrieved = list(dict.fromkeys([*promoted, *(d.id for d in ranked)]))[: self.n_retrieved]
         return RAGOutput(answer=answer, retrieved_ids=retrieved)

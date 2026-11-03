@@ -92,7 +92,24 @@ Trên train, v5 còn 8 câu có Recall@5 < 1. [`scripts/eval_final_retrieval.py`
 - Lỗi "AI" chỉ gặp ở các câu viết hoa "AI" (train-0028, train-0084, public-0009). Trên Public, top 5 của cả 42 câu không đổi; 2 câu trả lời đổi cách diễn đạt.
 - Lỗi lớn nhất còn lại là `relevant_ids` của BTC tính cả đoạn bổ trợ cùng chủ đề (train-0003 cần cả đoạn 34 "Tổng quan đào tạo"), trong khi LLM chỉ ghi đoạn nó trích. Ưu tiên đoạn "anh em" đã thử nhưng không có lợi trên hold.
 
-Public Test: baseline 52.40, ngưỡng 53.40. HybridPipeline với prompt v2: **88.64**, prompt v5: **89.14**.
+### v7: dòng `ID:` gồm cả đoạn bổ trợ, ví dụ văn phong động từ train
+
+- **Dòng `ID:`.** Trước đây LLM chỉ ghi các đoạn nó trích. Giờ prompt yêu cầu ghi thêm đoạn tổng quan hoặc bổ trợ cùng nội dung, vì `relevant_ids` của BTC tính cả loại đoạn này. Tối đa `n_promoted=5` id được đưa lên đầu `retrieved_ids`.
+- **Ví dụ động.** [`FewShotBank`](../src/neorag/fewshot.py) dùng BM25 tìm 3 câu train giống câu hỏi nhất, trên cả câu gốc lẫn câu đã viết lại, rồi chèn hỏi-đáp chuẩn của chúng vào user message làm ví dụ văn phong. Nhãn của phần này ghi rõ "KHÔNG dùng làm nguồn thông tin". [Quy định](rules.md) cho phép dùng train để xây few-shot.
+  - Câu trùng hẳn câu hỏi hiện tại bị loại, nên khi chạy trên train đây là leave-one-out.
+  - Tối đa 2 ví dụ cùng kiểu câu hỏi.
+  - Chỉ lấy câu có đáp án. Đáp án chuẩn của câu không có đáp án hay mở đầu bằng "Tài liệu chỉ cho biết ...", kiểu mà judge Abstention không coi là từ chối, nên ví dụ từ chối tĩnh vẫn giữ trong system prompt.
+
+| Bản | Retrieval | ROUGE-L tune / hold | SP tune / hold | Groundedness | Benchmark train |
+|---|---:|---:|---:|---:|---:|
+| v5 + "AI" | 0.9845 | 0.687 / 0.641 | 0.925 / 0.932 | 0.988 | 0.9252 |
+| + dòng `ID:` mới | 0.9861 | 0.656 / 0.642 | 0.925 / 0.929 | | |
+| + 3 ví dụ động (v7b) | 0.9876 | 0.703 / 0.647 | 0.934 / 0.935 | 0.995 | **0.9269** |
+
+- Kiểm tra lộ đáp án: 17 câu có ví dụ mà đáp án gần giống (ROUGE-L ≥ 0.4) tăng ROUGE-L +0.025, các câu còn lại tăng +0.027. Như vậy phần tăng đến từ văn phong, không phải từ chép nội dung.
+- Mỗi lần sinh lại câu trả lời có nhiễu lớn: ROUGE-L của từng câu dao động tới ±0.4 dù ý không đổi. Chênh lệch dưới khoảng 0.02 trên một nửa train chưa đủ để kết luận.
+
+Public Test: baseline 52.40, ngưỡng 53.40. HybridPipeline với prompt v2: **88.64**, prompt v5: **89.14**, v7b: **89.20**.
 
 ### Từ điển viết tắt từ dataset ngoài
 
