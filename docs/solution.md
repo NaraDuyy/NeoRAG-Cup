@@ -55,9 +55,30 @@ Generation trên train (`--no-judge`):
 | v1: 1-3 câu, nói rõ phần tài liệu không nêu | 0.895 | 0.626 | 0.468 | 272 ký tự | 2.4 s |
 | v2: dừng khi đã trả lời đủ, không rào đón | 0.894 | **0.644** | **0.503** | 208 ký tự | 2.2 s |
 
-Đáp án chuẩn có độ dài median 196 ký tự. Bản v1 hay thêm câu "Tài liệu không nêu thêm ..." kể cả khi đã trả lời đủ, làm giảm ROUGE-L. Hai câu train-0001 và train-0019 nằm trong ví dụ của prompt nên điểm train hơi lạc quan.
+Đáp án chuẩn có độ dài median 196 ký tự. Bản v1 hay thêm câu "Tài liệu không nêu thêm ..." kể cả khi đã trả lời đủ, làm giảm ROUGE-L. Hai câu train-0001 và train-0019 nằm trong ví dụ của prompt v1/v2 nên điểm train của hai bản này hơi lạc quan.
 
-Public Test: baseline 52.40, ngưỡng 53.40. HybridPipeline: **88.64**.
+### Tinh chỉnh văn phong câu trả lời (v3–v5)
+
+So với đáp án chuẩn, câu trả lời v2 lệch văn phong ở mấy điểm:
+- câu có/không ít khi mở đầu bằng "Có." / "Không.";
+- câu so sánh không nêu các đối tượng theo thứ tự câu hỏi;
+- hay diễn đạt lại cụm từ của tài liệu;
+- đôi khi tự suy đoán thêm.
+
+Để tránh overfit, [`scripts/eval_split.py`](../scripts/eval_split.py) chia train thành hai nửa cố định, cân theo kiểu câu hỏi: `tune` để đọc lỗi và `hold` chỉ để chấm. Hai câu train-0001 và train-0019 bị bỏ khỏi cả hai nửa. Hai ví dụ trong prompt được thay bằng ví dụ tự viết từ những đoạn corpus mà train và Public không hỏi tới (PROPTIT Marathon, trò chơi trên itch.io của GCC).
+
+| Prompt | Thay đổi so với bản trước | hold ROUGE-L / SP | tune ROUGE-L / SP | Judge trên cả train: Generation / Abstention |
+|---|---|---:|---:|---:|
+| v2 | | 0.638 / 0.884 | 0.644 / 0.901 | 0.8556 / 1.000 |
+| v3 | mở đầu "Có."/"Không.", "Theo <nguồn>", so sánh theo thứ tự, câu thiếu dữ liệu nêu phần có trước, không suy đoán | 0.645 / 0.914 | 0.682 / 0.878 | |
+| v4 | bỏ "Theo <nguồn>" (LLM tự đặt nguồn, câu dài ra), dùng lại đúng cụm từ của tài liệu | 0.654 / 0.938 | 0.672 / 0.925 | 0.8532 / **0.909** |
+| v5 | câu không có đáp án phải mở đầu bằng "Tài liệu hiện có không có thông tin về ..." | 0.638 / 0.932 | 0.686 / 0.925 | **0.8640** / 1.000 |
+
+Benchmark trên cả train tăng từ 0.9191 (v2) lên 0.9230 (v5). Tính riêng nửa hold, Generation của judge tăng từ 0.8493 lên 0.8538.
+- **Bài học từ v4.** Khi câu không có đáp án mở đầu bằng điều tài liệu có ("Tài liệu chỉ cho biết ..."), judge Abstention không coi đó là từ chối trả lời (train-0049). Đề Public chỉ có 3 câu không có đáp án, nên sai 1 câu mất khoảng 2.8 điểm tổng. Vì vậy v5 bắt buộc câu từ chối phải đứng đầu.
+- **Mức chắc chắn của v5.** String Presence tăng rõ trên cả hai nửa. Nhưng ROUGE-L trên nửa hold không đổi, nên chưa đạt ngưỡng đề ra (hold ROUGE-L +0.02). Mức tăng tổng (khoảng +0.2 đến +0.4 điểm) nằm trong biên nhiễu của judge.
+
+Public Test: baseline 52.40, ngưỡng 53.40. HybridPipeline với prompt v2: **88.64**.
 
 ### Từ điển viết tắt từ dataset ngoài
 
@@ -117,6 +138,10 @@ python scripts/eval_retrieval.py --questions eval/abbrev_dev.jsonl   # bộ câu
 
 # Sinh lại từ điển viết tắt (cần tải CSV của hai dataset về trước)
 python scripts/build_abbreviations.py --yammdd <thư mục> --vilexnorm <thư mục>
+
+# So các biến thể prompt trên hai nửa tune/hold của train
+neorag run train --pipeline neorag.pipelines.hybrid:HybridPipeline --no-judge --out outputs/train_pred_v5.jsonl
+python scripts/eval_split.py outputs/eval_train_pred/per_query.jsonl outputs/eval_train_pred_v5/per_query.jsonl
 
 # Chạy pipeline đầy đủ trên train, chấm nhanh không dùng judge
 neorag run train --pipeline neorag.pipelines.hybrid:HybridPipeline --no-judge
