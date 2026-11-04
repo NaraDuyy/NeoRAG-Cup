@@ -6,6 +6,7 @@ so khớp trên âm tiết đã bỏ dấu, kèm bigram âm tiết để ưu ti�
 
 from __future__ import annotations
 
+import json
 import math
 import re
 import unicodedata
@@ -30,6 +31,7 @@ _ACRONYM_AI = re.compile(r"\bAI\b")
 
 
 RESOURCE = Path(__file__).parent / "resources" / "abbreviations.tsv"
+DOC2QUERY_RESOURCE = Path(__file__).parent / "resources" / "doc2query.jsonl"
 
 
 class Abbreviations:
@@ -180,3 +182,10 @@ def rrf(
         for rank, item in enumerate(ranking, 1):
             fused[item] = fused.get(item, 0.0) + weight / (k + rank)
     return fused
+
+
+def load_doc2query(path: Path = DOC2QUERY_RESOURCE) -> dict[int, list[str]]:
+    """id đoạn -> các câu hỏi giả do scripts/build_doc2query.py sinh ra."""
+    with open(path, encoding="utf-8") as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    return {r["id"]: r["questions"] for r in rows}

@@ -129,7 +129,24 @@ Trên Public, retrieval thấp hơn train khoảng 5 điểm (Recall@5 90.7 so v
 - Bước viết lại câu hỏi tăng retrieval ở cả dev (0.766 → 0.847), hold (0.771 → 0.868) và tune (0.889 → 0.898).
 - `club_weight` 0, 0.5 hay 1 cho kết quả gần như nhau.
 
-Public Test: baseline 52.40, ngưỡng 53.40. HybridPipeline với prompt v2: **88.64**, prompt v5: **89.14**, v7b: **89.20**.
+### v9: 30 ứng viên + reranker xếp phần đuôi
+
+Chi tiết từng thử nghiệm, kể cả các bước sai, ở [experiment_log.md](experiment_log.md).
+- Trên train, retrieval đã gần trần (98.8) nên không còn đo được cải tiến. Phần retrieval của Public tính thẳng từ `retrieved_ids`, không qua judge, nên được dùng làm tín hiệu cho các thay đổi retrieval.
+- Mặc định mới: LLM được thấy 30 đoạn thay vì 12, và phần sau các id LLM ghi được xếp theo thứ tự gộp cross-encoder + RRF.
+
+| Bản | Recall@5 | NDCG@5 | Retrieval | Generation | Public |
+|---|---:|---:|---:|---:|---:|
+| v7b | 90.71 | 92.29 | 93.54 | 84.82 | 89.18–89.20 |
+| + tail | 91.31 | 92.69 | 93.87 | 84.74 | 89.30 |
+| + 20 ứng viên | 92.50 | 93.48 | 94.53 | 84.32 | 89.43 |
+| **+ 30 ứng viên (v9)** | **93.17** | **94.13** | **94.97** | 84.85 | **89.91 / 89.94** |
+| v9 + doc2query (không giữ) | 92.70 | 93.45 | 94.59 | 84.80 | 89.70 |
+
+- Doc2query ([`scripts/build_doc2query.py`](../scripts/build_doc2query.py)) và MBR decoding (`HybridPipeline(mbr=3)`) có trong code nhưng tắt mặc định.
+- Cần `python scripts/install.py --local` và model `BAAI/bge-reranker-v2-m3` trên máy chạy. Trên CPU, mỗi câu mất khoảng 15 giây.
+
+Public Test: baseline 52.40, ngưỡng 53.40. HybridPipeline với prompt v2: **88.64**, prompt v5: **89.14**, v7b: **89.20**, v9: **89.94**.
 
 ### Từ điển viết tắt từ dataset ngoài
 
@@ -187,6 +204,8 @@ python scripts/eval_retrieval.py --no-rewrite    # thêm bge-m3
 python scripts/eval_retrieval.py                 # thêm bước viết lại câu hỏi
 python scripts/eval_retrieval.py --questions eval/abbrev_dev.jsonl   # bộ câu viết tắt riêng
 python scripts/eval_final_retrieval.py --show    # retrieved_ids cuối cùng, chia tune/hold
+python scripts/quick_eval.py outputs/train_pred_a.jsonl outputs/train_pred_b.jsonl --rr   # chấm nhanh
+python scripts/paired.py outputs/train_pred_a.jsonl outputs/train_pred_b.jsonl   # so cặp, kèm sai số chuẩn
 python scripts/eval_retrieval.py --half hold --reranker BAAI/bge-reranker-v2-m3   # thử cross-encoder
 
 # Sinh lại từ điển viết tắt (cần tải CSV của hai dataset về trước)

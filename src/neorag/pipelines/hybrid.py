@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -23,9 +24,17 @@ import numpy as np
 from neorag.data import Document
 from neorag.fewshot import FewShotBank
 from neorag.llm import LLMClient
+from neorag.metrics.lexical import rouge_l
 from neorag.pipelines.base import RAGOutput, RAGPipeline
 from neorag.pipelines.baseline import GatewayEmbedder
-from neorag.retrieval import BM25, Abbreviations, expand_query, rrf, strip_accents
+from neorag.retrieval import (
+    BM25,
+    Abbreviations,
+    expand_query,
+    load_doc2query,
+    rrf,
+    strip_accents,
+)
 
 # Mã CLB dùng trong prompt viết lại câu hỏi -> giá trị trường `club` trong corpus
 CLUBS = {
@@ -169,13 +178,45 @@ def parse_answer(reply: str, allowed_ids: set[int]) -> tuple[str, list[int]]:
     return answer, list(dict.fromkeys(ids))
 
 
+def mbr_select(
+    samples: list[tuple[str, list[int]]], ids_mode: str = "chosen"
+) -> tuple[str, list[int]]:
+    """Minimum Bayes Risk: chọn câu trả lời có ROUGE-L trung bình cao nhất so với các mẫu còn lại.
+
+    Câu lệch hẳn (thiếu ý, lan man, hiểu sai) ít giống các mẫu khác nên bị loại; nhờ vậy giảm
+    phương sai do sinh ngẫu nhiên. `ids_mode="vote"` lấy các id được quá nửa số mẫu ghi, xếp theo
+    số phiếu rồi vị trí trung bình (không có id nào đạt đa số thì dùng id của câu được chọn).
+    """
+    if len(samples) == 1:
+        return samples[0]
+    answers = [a for a, _ in samples]
+    utility = [
+        sum(rouge_l(a, b) for j, b in enumerate(answers) if j != i) for i, a in enumerate(answers)
+    ]
+    best = max(range(len(samples)), key=lambda i: (utility[i], -i))
+    answer, ids = samples[best]
+    if ids_mode == "vote":
+        votes: Counter[int] = Counter()
+        positions: dict[int, list[int]] = {}
+        for _, sample_ids in samples:
+            for pos, i in enumerate(sample_ids):
+                votes[i] += 1
+                positions.setdefault(i, []).append(pos)
+        majority = [i for i in votes if 2 * votes[i] > len(samples)]
+        majority.sort(key=lambda i: (-votes[i], sum(positions[i]) / len(positions[i])))
+        ids = majority or ids
+    return answer, ids
+
+
 class HybridPipeline(RAGPipeline):
     def __init__(
         self,
-        n_candidates: int = 12,
+        n_candidates: int = 30,
         n_retrieved: int = 10,
         n_promoted: int = 5,
         few_shot: int = 3,
+        mbr: int = 1,
+        mbr_ids: str = "chosen",
         rewrite: bool = True,
         dense: bool = True,
         club_weight: float = 0.5,
@@ -183,9 +224,10 @@ class HybridPipeline(RAGPipeline):
         embedding_model: str | None = None,
         llm: LLMClient | None = None,
         embedder=None,
-        reranker=None,
-        rerank_top: int = 20,
+        reranker="BAAI/bge-reranker-v2-m3",
+        rerank_top: int = 30,
         rerank_weight: float = 1.0,
+        doc2query: tuple[str, ...] = (),
         rerank_candidates: bool = False,
         rerank_tail: bool = True,
     ):
@@ -193,6 +235,8 @@ class HybridPipeline(RAGPipeline):
         self.n_retrieved = n_retrieved  # số đoạn trả về để chấm retrieval
         self.n_promoted = n_promoted  # số id ở dòng `ID:` tối đa được đưa lên đầu
         self.few_shot = few_shot  # số câu train giống nhất làm ví dụ văn phong; 0 là tắt
+        self.mbr = mbr  # số câu trả lời sinh ra để chọn câu đồng thuận nhất (MBR); 1 là tắt
+        self.mbr_ids = mbr_ids  # "chosen": id của câu được chọn; "vote": id được đa số mẫu ghi
         # cross-encoder chạy local (tên model hoặc object có .score); None là tắt
         if isinstance(reranker, str):
             from neorag.embeddings import LocalReranker
@@ -201,6 +245,8 @@ class HybridPipeline(RAGPipeline):
         self.reranker = reranker
         self.rerank_top = rerank_top  # số đoạn đầu RRF được cross-encoder chấm lại
         self.rerank_weight = rerank_weight  # trọng số RRF của thứ tự cross-encoder
+        # nơi dùng câu hỏi giả của doc2query: "bm25" (nối vào văn bản), "dense" (bảng xếp hạng riêng)
+        self.doc2query = tuple(doc2query)
         self.rerank_candidates = rerank_candidates  # chọn ứng viên cho LLM theo cross-encoder
         self.rerank_tail = rerank_tail  # xếp phần sau các id LLM ghi theo cross-encoder
         self.rewrite = rewrite
@@ -217,13 +263,25 @@ class HybridPipeline(RAGPipeline):
         self.docs = corpus
         self.by_id = {d.id: d for d in corpus}
         texts = [f"{d.club} {d.topic} {d.text}" for d in corpus]
-        self.bm25 = BM25(texts)
+        # doc2query: câu hỏi giả của từng đoạn (scripts/build_doc2query.py)
+        questions = load_doc2query() if self.doc2query else {}
+        doc_questions = [questions.get(d.id, []) for d in corpus]
+        if "bm25" in self.doc2query:
+            self.bm25 = BM25(
+                [" ".join([t, *qs]) for t, qs in zip(texts, doc_questions, strict=True)]
+            )
+        else:
+            self.bm25 = BM25(texts)
         # nghĩa viết tắt có trong corpus được xếp trước, nhưng không nghĩa nào bị bỏ
         self.abbrevs = Abbreviations.load().rank_by_corpus(texts)
         if self.few_shot:
             self.examples = FewShotBank.load()
         if self.dense:
             self.doc_vectors = self.embedder.embed([d.text for d in corpus])
+            if "dense" in self.doc2query:
+                flat = [(i, q) for i, qs in enumerate(doc_questions) for q in qs]
+                self.question_doc = np.array([i for i, _ in flat])
+                self.question_vectors = self.embedder.embed([q for _, q in flat])
 
     def _chat(self, system: str, user: str) -> str:
         messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
@@ -257,6 +315,12 @@ class HybridPipeline(RAGPipeline):
             for vec in self.embedder.embed(accented):
                 rankings.append(list(np.argsort(-(self.doc_vectors @ vec))))
                 weights.append(1.0)
+                if "dense" in self.doc2query:
+                    # điểm của đoạn = câu hỏi giả giống câu hỏi nhất
+                    best = np.full(len(self.docs), -1.0)
+                    np.maximum.at(best, self.question_doc, self.question_vectors @ vec)
+                    rankings.append(list(np.argsort(-best)))
+                    weights.append(1.0)
         clubs = {CLUBS[c] for c in plan.clubs} | {CLUBS["s2b"]}
         if plan.clubs and len(clubs) < len(CLUBS):
             # thêm một bảng xếp hạng chỉ gồm đoạn văn của CLB được hỏi để đẩy chúng lên
@@ -279,8 +343,12 @@ class HybridPipeline(RAGPipeline):
             lines = [f'- Hỏi: "{e["query"]}"\n  TRẢ LỜI: {e["answer"]}' for e in examples]
             user = "\n".join([EXAMPLES_HEADER, *lines, "", user])
             system = ANSWER_SYSTEM_FEWSHOT
-        reply = self._chat(system, user)
-        return parse_answer(reply, {d.id for d in candidates})
+        allowed = {d.id for d in candidates}
+        # mẫu thứ i thêm i dòng trống cuối tin nhắn: cùng nội dung nhưng không trúng cache của mẫu khác
+        samples = [
+            parse_answer(self._chat(system, user + "\n" * i), allowed) for i in range(self.mbr)
+        ]
+        return mbr_select(samples, self.mbr_ids)
 
     def rerank(self, plan: QueryPlan, ranked: list[Document]) -> list[Document]:
         """Gộp thứ tự RRF với thứ tự cross-encoder của `rerank_top` đoạn đầu (lại bằng RRF).

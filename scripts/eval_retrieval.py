@@ -35,6 +35,9 @@ def main() -> int:
     parser.add_argument("--k", type=int, default=5)
     parser.add_argument("--reranker", help="cross-encoder local, ví dụ BAAI/bge-reranker-v2-m3")
     parser.add_argument("--rerank-top", type=int, default=20)
+    parser.add_argument(
+        "--doc2query", nargs="*", default=[], choices=["bm25", "dense"], help="dùng câu hỏi giả"
+    )
     parser.add_argument("--half", choices=["tune", "hold"], help="chỉ một nửa của tập train")
     parser.add_argument(
         "--questions",
@@ -51,6 +54,7 @@ def main() -> int:
         club_weight=args.club_weight,
         reranker=args.reranker,
         rerank_top=args.rerank_top,
+        doc2query=args.doc2query,
     )
     pipeline.index(load_corpus())
     half = split_train()[0] if args.half else {}

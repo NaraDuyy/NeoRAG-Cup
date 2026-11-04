@@ -119,7 +119,7 @@ def _responder(messages):
 
 def test_hybrid_runs_end_to_end(corpus):
     llm = FakeLLM(_responder)
-    pipeline = HybridPipeline(llm=llm, embedder=FakeEmbedder())
+    pipeline = HybridPipeline(llm=llm, embedder=FakeEmbedder(), reranker=None)
     pipeline.prepare()
     pipeline.index(corpus)
     preds = predict(pipeline, [Query("q1", "clb mm thanh lap ngay nao")], max_retrieved=10)
@@ -132,7 +132,7 @@ def test_hybrid_runs_end_to_end(corpus):
 
 def test_plan_adds_abbreviation_hints_to_user_message(corpus):
     llm = FakeLLM(_responder)
-    pipeline = HybridPipeline(llm=llm, embedder=FakeEmbedder())
+    pipeline = HybridPipeline(llm=llm, embedder=FakeEmbedder(), reranker=None)
     pipeline.index(corpus)
     pipeline.plan("bh clb mm co sinh hoat ko")
     user = llm.calls[0][1]["content"]
@@ -147,7 +147,7 @@ def test_plan_adds_abbreviation_hints_to_user_message(corpus):
 
 def test_only_first_promoted_ids_lead(corpus):
     llm = FakeLLM(lambda m: "ID: 3, 2\nTRẢ LỜI: GCC ra đời năm 2023.")
-    pipeline = HybridPipeline(n_promoted=1, rewrite=False, dense=False, llm=llm)
+    pipeline = HybridPipeline(n_promoted=1, rewrite=False, dense=False, llm=llm, reranker=None)
     pipeline.index(corpus)
     out = pipeline.run("clb multimedia thanh lap ngay nao")
     rest = [d.id for d in pipeline.retrieve(pipeline.plan("clb multimedia thanh lap ngay nao"))]
@@ -173,7 +173,7 @@ def test_few_shot_bank_skips_same_query_and_limits_type():
 
 def test_few_shot_examples_go_to_user_message(corpus):
     llm = FakeLLM(_responder)
-    pipeline = HybridPipeline(few_shot=2, llm=llm, embedder=FakeEmbedder())
+    pipeline = HybridPipeline(few_shot=2, llm=llm, embedder=FakeEmbedder(), reranker=None)
     pipeline.index(corpus)
     pipeline.run("clb mm thanh lap ngay nao")
     system, user = (m["content"] for m in llm.calls[1])
@@ -189,7 +189,7 @@ def test_few_shot_examples_go_to_user_message(corpus):
 
 def test_hybrid_without_rewrite_or_dense(corpus):
     llm = FakeLLM(lambda m: "")  # LLM trả rỗng: vẫn phải có câu trả lời hợp lệ
-    pipeline = HybridPipeline(rewrite=False, dense=False, llm=llm)
+    pipeline = HybridPipeline(rewrite=False, dense=False, llm=llm, reranker=None)
     pipeline.index(corpus)
     out = pipeline.run("GCC ra doi nam nao")
     assert out.answer and out.retrieved_ids[0] == 3
@@ -241,3 +241,17 @@ def test_rerank_candidates_changes_llm_context_order(corpus):
     pipeline.index(corpus)
     pipeline.run("clb multimedia thanh lap ngay nao")
     assert "[3]" in llm.calls[0][1]["content"]  # đoạn GCC được đưa vào 2 ứng viên
+
+
+def test_mbr_select_picks_consensus_answer_and_votes_ids():
+    from neorag.pipelines.hybrid import mbr_select
+
+    samples = [
+        ("CLB thành lập ngày 10/11/2012 tại PTIT.", [2, 5]),
+        ("CLB thành lập ngày 10/11/2012.", [2]),
+        ("Không rõ, có thể là năm 2015 hoặc 2016.", [7, 5]),
+    ]
+    answer, ids = mbr_select(samples)
+    assert answer.startswith("CLB thành lập") and ids in ([2, 5], [2])
+    assert mbr_select(samples, "vote")[1] == [2, 5]  # 2 và 5 đều được 2/3 mẫu ghi
+    assert mbr_select(samples[:1]) == samples[0]
