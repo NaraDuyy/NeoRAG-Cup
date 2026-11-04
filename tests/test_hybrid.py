@@ -212,7 +212,9 @@ def test_rerank_fuses_cross_encoder_order_into_rrf(corpus):
         lambda m: "TRẢ LỜI: Không rõ."
     )  # không có dòng ID: thứ tự chỉ do xếp hạng quyết định
     reranker = _FakeReranker()
-    pipeline = HybridPipeline(rewrite=False, dense=False, few_shot=0, llm=llm, reranker=reranker)
+    pipeline = HybridPipeline(
+        rewrite=False, dense=False, few_shot=0, llm=llm, reranker=reranker, rerank_weight=1.0
+    )
     pipeline.index(corpus)
     query = "clb multimedia thanh lap ngay nao"
     rrf_order = [d.id for d in pipeline.retrieve(pipeline.plan(query))]

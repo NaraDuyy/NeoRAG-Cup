@@ -226,7 +226,7 @@ class HybridPipeline(RAGPipeline):
         embedder=None,
         reranker="BAAI/bge-reranker-v2-m3",
         rerank_top: int = 30,
-        rerank_weight: float = 1.0,
+        rerank_weight: float = 2.0,
         doc2query: tuple[str, ...] = (),
         rerank_candidates: bool = False,
         rerank_tail: bool = True,

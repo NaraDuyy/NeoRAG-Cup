@@ -301,3 +301,18 @@ So cặp từng câu bằng `scripts/paired.py`, mỗi ô là chênh lệch trun
 **Public:** 89.20 (v7b) → **89.94** (lần nộp lại cand30tail). Retrieval 93.54 → 94.97.
 
 **Chi phí đợt này:** khoảng $1.0–1.1 trong $2.60, ước tính theo E0. Phần còn lại khoảng $1.5. Private với cấu hình mới tốn khoảng $0.0015 mỗi câu cho bước trả lời (prompt 30 đoạn dài khoảng 2 lần bản 12 đoạn).
+
+## E7. Trọng số reranker cho phần đuôi (`rerank_weight`)
+
+- **Vì sao:** tail với w=1 đã giúp trên Public (E3a). Câu hỏi tiếp theo là nên nghiêng về reranker nhiều hơn hay ít hơn. Thử nghiệm này **không tốn API**: câu trả lời và điểm reranker của cấu hình v9 đều đã có trong cache, chỉ tốn lượt nộp.
+- **Trên train:** w = 0 / 1 / 2 / 100 cho retrieval cuối là tune 0.990 / 0.989 / 0.993 / 0.989 và hold 0.988 / 0.988 / 0.984 / 0.984. Chênh nhau ±0.003, train đã sát trần nên không phân biệt được. Phải nhờ Public.
+- **Trên Public** (câu trả lời y hệt v9):
+
+| w | Recall@5 | NDCG@5 | Retrieval | Generation (nhiễu) | Tổng |
+|---|---:|---:|---:|---:|---:|
+| 1 (v9) | 93.17 | 94.13 | 94.97 | 84.85 | 89.91 / 89.94 |
+| **2** | **93.97** | **94.61** | **95.40** | 84.58 | **89.99** |
+
+- **Kết luận:** chọn w=2 làm mặc định. Pipeline mặc định khớp 42/42 với file đã nộp.
+- **Cảnh giác overfit:** đây là chỉnh một tham số dựa trên 42 câu Public. Recall +0.8 tương đương khoảng 1 đoạn đúng thêm vào top 5 trên toàn bộ 42 câu, nên tín hiệu khá mỏng. Tuy vậy chiều tăng nhất quán: w=0 → 1 → 2 đều tăng. Mình chỉ thử vài giá trị tròn, không dò mịn. Ngày mai thử thêm w=100 (gần như xếp hẳn theo reranker). Nếu không tăng nữa thì dừng ở 2.
+- **Lượt nộp:** hôm nay đã dùng 9/10. Lượt thứ 10 để dành.
