@@ -316,3 +316,34 @@ So cặp từng câu bằng `scripts/paired.py`, mỗi ô là chênh lệch trun
 - **Kết luận:** chọn w=2 làm mặc định. Pipeline mặc định khớp 42/42 với file đã nộp.
 - **Cảnh giác overfit:** đây là chỉnh một tham số dựa trên 42 câu Public. Recall +0.8 tương đương khoảng 1 đoạn đúng thêm vào top 5 trên toàn bộ 42 câu, nên tín hiệu khá mỏng. Tuy vậy chiều tăng nhất quán: w=0 → 1 → 2 đều tăng. Mình chỉ thử vài giá trị tròn, không dò mịn. Ngày mai thử thêm w=100 (gần như xếp hẳn theo reranker). Nếu không tăng nữa thì dừng ở 2.
 - **Lượt nộp:** hôm nay đã dùng 9/10. Lượt thứ 10 để dành.
+
+## E8. Lượt nộp cuối ngày: w=100, và phát hiện rủi ro Abstention
+
+- **Thử:** w=100 (phần đuôi gần như xếp hẳn theo reranker). Câu trả lời y hệt w=2. Không tốn API.
+- **Kết quả Public:** retrieval 95.43, gần như bằng w=2 (95.40), tức hết tăng. Không đổi mặc định.
+- **Bất ngờ: Abstention 100 → 66.67, tổng tụt còn 87.40** dù câu trả lời **giống hệt** bản w=2 (89.99). Judge chấm một trong 3 câu từ chối lúc đạt lúc không. Mỗi lần như vậy mất khoảng **2.6 điểm tổng**, lớn hơn mọi cải tiến của cả đợt cộng lại.
+
+### Tìm câu gây rủi ro (chi phí < $0.01)
+
+- Chạy riêng judge Abstention 8 lần cho mỗi câu từ chối trên Public. Mỗi lần thêm khoảng trắng cuối câu để không trúng cache. So bản đầy đủ với bản chỉ giữ câu đầu.
+
+| Câu | Bản đầy đủ (v9) | Bản v7b | Chỉ câu đầu |
+|---|---:|---:|---:|
+| public-0002 | 8/8 | 8/8 | 8/8 |
+| **public-0024** | **5/8** | **1/8** | 8/8 |
+| public-0027 | 8/8 | 8/8 | 8/8 |
+
+- public-0024 hỏi so sánh học phí. Câu "Tài liệu chỉ cho biết …" kèm theo lại kể "đóng một khoản nhỏ hằng tháng gọi là quỹ CLB" và "0.1 điểm khuyến khích". Judge coi đó là đưa ra thông tin cụ thể như lời giải.
+- Trên 11 câu không có đáp án của train (mỗi câu 4 lần): bản đầy đủ đạt 43/44. Lần trượt rơi vào **train-0019, cũng là câu hỏi về phí/quỹ**. Bản chỉ câu đầu đạt 44/44.
+- **Bài học:** với câu không có đáp án, điểm **chỉ tính Abstention**; ROUGE-L và SP không áp dụng. Phần thông tin kèm theo câu từ chối không mang lại điểm mà chỉ thêm rủi ro. Quy tắc "có thể thêm 'Tài liệu chỉ cho biết …'" được đặt ra từ v5 vì muốn câu từ chối hữu ích hơn cho người đọc, nhưng chưa tính tới rủi ro này.
+
+### Quyết định: `trim_refusal=True` (câu trả lời mở đầu bằng "Tài liệu hiện có không có thông tin" chỉ giữ câu đầu)
+
+| | Mất | Được |
+|---|---|---|
+| Public | 0: cả 3 câu bị cắt đều là câu từ chối thật | Tránh rủi ro ~37% × 2.6 ≈ **1 điểm** kỳ vọng |
+| Train | 4 câu **có đáp án một phần** mà LLM trả lời bằng câu từ chối (train-0027, 0053, 0062, 0119) mất phần thông tin: SP −0.022, ROUGE-L −0.007, ≈ **−0.24 điểm** | Tránh rủi ro ≈ 2.3% × 11 câu × 0.76 ≈ 0.19 điểm |
+
+- Trên phân bố giống train, hai bên gần như hòa. Trên Public thì có lợi rõ. Thêm nữa, việc cắt **loại bỏ một khoản mất điểm lớn và ngẫu nhiên**, mà Private chỉ chạy một lần. Vì vậy mình chọn cắt.
+- Muốn tắt thì dùng `HybridPipeline(trim_refusal=False)`.
+- Bản v10 trên Public (`public_test_pred_v10_submission.zip`) chỉ khác w=2 ở 3 câu từ chối. Chưa nộp vì hôm nay đã hết lượt.

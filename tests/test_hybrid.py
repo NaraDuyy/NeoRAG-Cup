@@ -257,3 +257,20 @@ def test_mbr_select_picks_consensus_answer_and_votes_ids():
     assert answer.startswith("CLB thành lập") and ids in ([2, 5], [2])
     assert mbr_select(samples, "vote")[1] == [2, 5]  # 2 và 5 đều được 2/3 mẫu ghi
     assert mbr_select(samples[:1]) == samples[0]
+
+
+def test_refusal_answers_keep_only_the_first_sentence(corpus):
+    reply = (
+        "ID:\nTRẢ LỜI: Tài liệu hiện có không có thông tin về học phí. "
+        "Tài liệu chỉ cho biết thành viên đóng quỹ hằng tháng."
+    )
+    pipeline = HybridPipeline(
+        rewrite=False, dense=False, few_shot=0, reranker=None, llm=FakeLLM(lambda m: reply)
+    )
+    pipeline.index(corpus)
+    assert (
+        pipeline.run("hoc phi bao nhieu").answer
+        == "Tài liệu hiện có không có thông tin về học phí."
+    )
+    pipeline.trim_refusal = False
+    assert "quỹ" in pipeline.run("hoc phi bao nhieu").answer

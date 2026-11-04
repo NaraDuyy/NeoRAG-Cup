@@ -35,6 +35,7 @@ from neorag.retrieval import (
     rrf,
     strip_accents,
 )
+from neorag.text import split_sentences
 
 # Mã CLB dùng trong prompt viết lại câu hỏi -> giá trị trường `club` trong corpus
 CLUBS = {
@@ -111,6 +112,8 @@ ANSWER_SYSTEM_FEWSHOT = f"""{ANSWER_RULES}
 
 Ví dụ câu trả lời khi tài liệu không có thông tin:
 {EXAMPLE_ABSTAIN}"""
+
+REFUSAL_PREFIX = "Tài liệu hiện có không có thông tin"
 
 HINTS_HEADER = "Gợi ý viết tắt (có thể sai, hãy chọn theo ngữ cảnh hoặc bỏ qua):"
 
@@ -217,6 +220,7 @@ class HybridPipeline(RAGPipeline):
         few_shot: int = 3,
         mbr: int = 1,
         mbr_ids: str = "chosen",
+        trim_refusal: bool = True,
         rewrite: bool = True,
         dense: bool = True,
         club_weight: float = 0.5,
@@ -237,6 +241,9 @@ class HybridPipeline(RAGPipeline):
         self.few_shot = few_shot  # số câu train giống nhất làm ví dụ văn phong; 0 là tắt
         self.mbr = mbr  # số câu trả lời sinh ra để chọn câu đồng thuận nhất (MBR); 1 là tắt
         self.mbr_ids = mbr_ids  # "chosen": id của câu được chọn; "vote": id được đa số mẫu ghi
+        # câu từ chối chỉ giữ câu đầu: thông tin kèm theo (nhất là phí, con số) đôi khi khiến judge
+        # Abstention coi là đã trả lời, mà câu không có đáp án thì chỉ được chấm Abstention
+        self.trim_refusal = trim_refusal
         # cross-encoder chạy local (tên model hoặc object có .score); None là tắt
         if isinstance(reranker, str):
             from neorag.embeddings import LocalReranker
@@ -370,7 +377,9 @@ class HybridPipeline(RAGPipeline):
         pool = reranked if self.rerank_candidates else ranked
         answer, used = self.answer(plan, pool[: self.n_candidates])
         if not answer:
-            answer = "Tài liệu hiện có không có thông tin để trả lời câu hỏi này."
+            answer = f"{REFUSAL_PREFIX} để trả lời câu hỏi này."
+        elif self.trim_refusal and answer.startswith(REFUSAL_PREFIX):
+            answer = split_sentences(answer)[0]
         tail = reranked if self.rerank_tail else ranked
         promoted = used[: self.n_promoted]
         retrieved = list(dict.fromkeys([*promoted, *(d.id for d in tail)]))[: self.n_retrieved]
