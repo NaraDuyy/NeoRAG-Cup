@@ -347,3 +347,55 @@ So cặp từng câu bằng `scripts/paired.py`, mỗi ô là chênh lệch trun
 - Trên phân bố giống train, hai bên gần như hòa. Trên Public thì có lợi rõ. Thêm nữa, việc cắt **loại bỏ một khoản mất điểm lớn và ngẫu nhiên**, mà Private chỉ chạy một lần. Vì vậy mình chọn cắt.
 - Muốn tắt thì dùng `HybridPipeline(trim_refusal=False)`.
 - Bản v10 trên Public (`public_test_pred_v10_submission.zip`) chỉ khác w=2 ở 3 câu từ chối. Chưa nộp vì hôm nay đã hết lượt.
+
+## E9. Truy xuất bằng chứng theo câu trả lời (`evidence_weight`)
+
+- **Quan sát dẫn tới giả thuyết:** phân tích các đoạn đúng còn thiếu trên train cho thấy BTC gắn nhãn theo kiểu "**mọi đoạn có chứa thông tin của đáp án**", chứ không theo "đoạn nói về chủ đề câu hỏi".
+  - Ví dụ train-0099: câu hỏi "ai đứng lớp, ra trường còn gắn bó không" không nhắc gì tới nội quy. Vậy mà đoạn [71] "Nghĩa vụ thành viên theo nội quy" vẫn là đoạn đúng, vì nó ghi "…duy trì truyền thống khóa trên dạy khóa dưới, quay lại giúp đỡ CLB khi cần", trùng thông tin với đáp án.
+  - Tìm theo câu hỏi thì đoạn này nằm hạng 44 (BM25 38–72, bge-m3 48–61). Cố chỉnh retrieval theo câu hỏi để bắt nó là overfit.
+- **Giả thuyết:** dùng chính **câu trả lời** của LLM làm truy vấn (BM25 + bge-m3) sẽ tìm ra những đoạn chứa cùng thông tin. Gộp thứ hạng này vào phần sau các id LLM ghi sẽ bắt được loại đoạn đúng mà câu hỏi không nhắc tới.
+- **Không tốn API:** câu trả lời đã có trong cache, chỉ thêm tìm kiếm cục bộ và một lần embed bge-m3. Câu từ chối thì bỏ qua bước này.
+- **Kết quả trên train** (retrieval cuối, câu trả lời y hệt):
+
+| `evidence_weight` | tune | hold | Recall tăng | Recall giảm |
+|---|---:|---:|---|---|
+| 0 | 0.9929 | 0.9843 | | |
+| 0.5 | 0.9930 | 0.9880 | 0048 | |
+| 1 | 0.9889 | 0.9879 | 0048 | 0118 |
+| **2** | 0.9929 | **0.9921** | 0015, 0048, **0099** | 0118 |
+
+- Câu bị hỏng (train-0118): câu trả lời có thêm chi tiết phụ "theo cách giới thiệu các ban trong đợt tuyển Gen 14 (tháng 8/2026)", và chi tiết này kéo các đoạn về đợt tuyển Gen 14 lên. Đây đúng là rủi ro đã dự đoán: câu trả lời lan man thì kéo theo đoạn lan man.
+- Trọng số không tăng đơn điệu (w=1 làm tune giảm), nên tín hiệu trên train còn nhiễu. Trên Public, file `evid2` đổi tập top 5 ở 30/42 câu, nhưng id đứng đầu và câu trả lời giữ nguyên. Đã nộp để kiểm chứng.
+
+### E9a. Kết quả nộp `evid2`: tổng 90.12 nhưng **retrieval giảm**, không giữ
+
+| | w2 (89.99) | evid2 (90.12) |
+|---|---:|---:|
+| Recall@5 | 93.97 | 93.97 |
+| NDCG@5 | 94.61 | 94.26 |
+| **Retrieval** | **95.40** | 95.28 |
+| 1 − Noise | 94.44 | 97.22 |
+| Abstention | 100 | 100 |
+| Generation | 84.58 | 84.96 |
+
+- **Bẫy dễ mắc:** nhìn tổng 90.12, cao nhất từ trước tới giờ, thì dễ kết luận "truy xuất theo câu trả lời có tác dụng". Thật ra phần chịu ảnh hưởng của thay đổi là retrieval lại **giảm 0.12**: Recall không đổi, NDCG giảm. Phần tăng nằm ở generation, đến từ 3 câu từ chối đã cắt (E8) và nhiễu judge (1 − Noise lệch 2.8 dù câu trả lời gần như giống hệt). Hai thứ này bản v10 cũng có.
+- **Quy tắc rút ra:** mỗi thay đổi chỉ được đánh giá trên **phần chỉ số mà nó tác động tới**. Thay đổi ở retrieval thì đọc Recall/MRR/NDCG, không đọc tổng.
+- Trên train, hold tăng +0.008 (sửa 3 câu, hỏng 1). Trên Public thì không. Có thể Public có nhiều câu trả lời nhắc chi tiết phụ (như train-0118) hơn, nên câu trả lời kéo đoạn lạc đề lên.
+- **Quyết định:** `evidence_weight=0` (tắt; code giữ lại). Nộp **v10** (w2 + cắt câu từ chối) làm bản trên bảng xếp hạng.
+
+### E9b. Kết quả nộp `v10` (w2 + cắt câu từ chối): **90.19**, bản trên bảng xếp hạng
+
+| | w2 | evid2 | **v10** |
+|---|---:|---:|---:|
+| Retrieval | 95.40 | 95.28 | **95.40** |
+| String Presence | 91.88 | 91.88 | 91.88 |
+| ROUGE-L | 64.23 | 63.79 | 63.79 |
+| Groundedness | 97.86 | 97.44 | 96.58 |
+| Response Relevancy | 59.07 | 59.45 | 59.33 |
+| 1 − Noise | 94.44 | 97.22 | 98.29 |
+| Abstention | 100 | 100 | 100 |
+| **Tổng** | 89.99 | 90.12 | **90.19** |
+
+- Retrieval của v10 trùng khớp w2 (95.40), đúng như dự kiến vì `retrieved_ids` giống hệt.
+- **Suy luận ngược từ điểm:** ROUGE-L chỉ tính trên câu **có đáp án**, và chỉ 3 câu từ chối bị cắt. Vậy việc ROUGE-L giảm 64.23 → 63.79 cho biết **một trong 3 câu đó thực ra có đáp án**, kiểu "đáp án một phần" như train-0027/0062/0119. Thiệt hại khoảng −0.44 ROUGE-L, tức −0.04 điểm tổng, khớp với đánh đổi đã ước lượng ở E8. Đổi lại, 3 lần nộp gần nhất có cắt hoặc không có câu kèm phí đều được Abstention 100.
+- Hai lần nộp có cùng `retrieved_ids` hoặc cùng câu trả lời vẫn lệch nhau ở Groundedness, Noise, RR tới khoảng ±3. Mức chênh 90.12 so với 90.19 hoàn toàn nằm trong nhiễu judge.

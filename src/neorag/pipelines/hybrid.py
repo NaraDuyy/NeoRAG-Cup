@@ -221,6 +221,7 @@ class HybridPipeline(RAGPipeline):
         mbr: int = 1,
         mbr_ids: str = "chosen",
         trim_refusal: bool = True,
+        evidence_weight: float = 0.0,
         rewrite: bool = True,
         dense: bool = True,
         club_weight: float = 0.5,
@@ -244,6 +245,8 @@ class HybridPipeline(RAGPipeline):
         # câu từ chối chỉ giữ câu đầu: thông tin kèm theo (nhất là phí, con số) đôi khi khiến judge
         # Abstention coi là đã trả lời, mà câu không có đáp án thì chỉ được chấm Abstention
         self.trim_refusal = trim_refusal
+        # trọng số RRF của thứ hạng theo độ giống câu trả lời khi xếp phần đuôi; 0 là tắt
+        self.evidence_weight = evidence_weight
         # cross-encoder chạy local (tên model hoặc object có .score); None là tắt
         if isinstance(reranker, str):
             from neorag.embeddings import LocalReranker
@@ -370,6 +373,23 @@ class HybridPipeline(RAGPipeline):
         fused = rrf([list(range(len(ranked))), by_score], [1.0, self.rerank_weight])
         return [ranked[i] for i in sorted(fused, key=fused.get, reverse=True)]
 
+    def evidence(self, tail: list[Document], answer: str) -> list[Document]:
+        """Gộp phần đuôi với thứ hạng theo độ giống câu trả lời (BM25 + bge-m3).
+
+        `relevant_ids` của BTC gồm mọi đoạn chứa thông tin có trong đáp án, kể cả đoạn câu hỏi
+        không nhắc tới (train-0099: đoạn nội quy cũng ghi "quay lại giúp đỡ CLB"). Tìm theo câu
+        trả lời bắt được những đoạn này mà tìm theo câu hỏi thì không.
+        """
+        position = {d.id: i for i, d in enumerate(self.docs)}
+        rankings = [[position[d.id] for d in tail], list(np.argsort(-self.bm25.scores(answer)))]
+        weights = [1.0, self.evidence_weight]
+        if self.dense:
+            vec = self.embedder.embed([answer])[0]
+            rankings.append(list(np.argsort(-(self.doc_vectors @ vec))))
+            weights.append(self.evidence_weight)
+        fused = rrf(rankings, weights)
+        return [self.docs[i] for i in sorted(fused, key=fused.get, reverse=True)]
+
     def run(self, query: str) -> RAGOutput:
         plan = self.plan(query)
         ranked = self.retrieve(plan)
@@ -381,6 +401,8 @@ class HybridPipeline(RAGPipeline):
         elif self.trim_refusal and answer.startswith(REFUSAL_PREFIX):
             answer = split_sentences(answer)[0]
         tail = reranked if self.rerank_tail else ranked
+        if self.evidence_weight and not answer.startswith(REFUSAL_PREFIX):
+            tail = self.evidence(tail, answer)
         promoted = used[: self.n_promoted]
         retrieved = list(dict.fromkeys([*promoted, *(d.id for d in tail)]))[: self.n_retrieved]
         return RAGOutput(answer=answer, retrieved_ids=retrieved)
