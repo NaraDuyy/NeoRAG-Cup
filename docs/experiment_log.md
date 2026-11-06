@@ -399,3 +399,23 @@ So cặp từng câu bằng `scripts/paired.py`, mỗi ô là chênh lệch trun
 - Retrieval của v10 trùng khớp w2 (95.40), đúng như dự kiến vì `retrieved_ids` giống hệt.
 - **Suy luận ngược từ điểm:** ROUGE-L chỉ tính trên câu **có đáp án**, và chỉ 3 câu từ chối bị cắt. Vậy việc ROUGE-L giảm 64.23 → 63.79 cho biết **một trong 3 câu đó thực ra có đáp án**, kiểu "đáp án một phần" như train-0027/0062/0119. Thiệt hại khoảng −0.44 ROUGE-L, tức −0.04 điểm tổng, khớp với đánh đổi đã ước lượng ở E8. Đổi lại, 3 lần nộp gần nhất có cắt hoặc không có câu kèm phí đều được Abstention 100.
 - Hai lần nộp có cùng `retrieved_ids` hoặc cùng câu trả lời vẫn lệch nhau ở Groundedness, Noise, RR tới khoảng ±3. Mức chênh 90.12 so với 90.19 hoàn toàn nằm trong nhiễu judge.
+
+## E10. Câu trả lời ngắn hơn có tăng Response Relevancy không? → **Không** (bác bỏ với ~$0.02)
+
+- **Giả thuyết ban đầu (từ E1):** trên train, nửa câu trả lời ngắn có RR cao hơn nửa dài (0.755 so với 0.697 ở câu có dấu). RR đang mất nhiều điểm nhất (−3.39 điểm tổng). Vậy dặn LLM viết ngắn hơn có thể tăng RR.
+- **Vì sao không chạy ngay:** sinh lại câu trả lời tốn khoảng $0.2, và còn ảnh hưởng tới SP/ROUGE-L. Trước đó có thể kiểm tra **rẻ hơn** bằng cách can thiệp trực tiếp: lấy chính câu trả lời v10, cắt máy còn 1 hoặc 2 câu đầu, rồi chấm lại RR. Chỉ tốn lần gọi RR.
+
+| Bản | Độ dài TB | SP | ROUGE-L | RR |
+|---|---:|---:|---:|---:|
+| v10 nguyên bản | 225 | 0.920 | 0.671 | 0.667 |
+| Giữ 2 câu đầu | 204 | 0.873 | 0.663 | 0.668 |
+| Giữ 1 câu đầu | 99 | 0.439 | 0.403 | 0.588 |
+
+- **Phân tích nguyên nhân:**
+  - 24 câu bị cắt có RR 0.641 → 0.642, tức **không đổi**.
+  - Trong nhóm câu có dấu, câu **hỏi** ngắn có RR 0.750, câu hỏi dài 0.702. Câu hỏi nhiều ý thì 3 câu hỏi sinh ngược khó khớp với nó.
+  - Câu hỏi ngắn thường đi kèm câu trả lời ngắn. Mối liên hệ "trả lời ngắn ↔ RR cao" là **tương quan giả**, do độ dài câu hỏi gây ra.
+- **Kết luận:** RR do câu hỏi quyết định (có dấu hay không, mấy ý), pipeline gần như không tác động được. Không sinh lại câu trả lời.
+- **Bài học:**
+  - **Tương quan không phải nhân quả.** Trước khi tốn tiền thay đổi theo một tương quan quan sát được, hãy tìm cách **can thiệp trực tiếp** rẻ nhất để kiểm tra. Ở đây, cắt máy thay cho viết lại.
+  - Cắt máy không giống hệt dặn LLM viết ngắn: LLM có thể viết gọn mà vẫn đủ ý. Nhưng nếu bỏ hẳn cả câu thứ 3 mà RR vẫn không đổi, thì việc viết gọn hơn càng khó làm RR tăng.
