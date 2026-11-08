@@ -419,3 +419,69 @@ So cặp từng câu bằng `scripts/paired.py`, mỗi ô là chênh lệch trun
 - **Bài học:**
   - **Tương quan không phải nhân quả.** Trước khi tốn tiền thay đổi theo một tương quan quan sát được, hãy tìm cách **can thiệp trực tiếp** rẻ nhất để kiểm tra. Ở đây, cắt máy thay cho viết lại.
   - Cắt máy không giống hệt dặn LLM viết ngắn: LLM có thể viết gọn mà vẫn đủ ý. Nhưng nếu bỏ hẳn cả câu thứ 3 mà RR vẫn không đổi, thì việc viết gọn hơn càng khó làm RR tăng.
+
+## E11. Private Test và bài học về câu "có đáp án một phần"
+
+### Kết quả Private của v10
+
+| Bài | Retrieval | SP | ROUGE-L | Groundedness | RR | 1 − Noise | Abstention | Tổng |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| v10 (cắt câu từ chối), ID 33278 | 97.27 | 84.83 | 58.66 | 89.74 | 55.93 | 83.33 | 100 | **88.34** (lần chấm lại: 88.01) |
+| v10, không cắt, ID 33281 | 97.27 | 93.80 | 60.22 | 97.44 | 53.67 | 87.61 | 66.67 | 86.92 |
+
+- **Retrieval tốt hơn cả Public** (97.27 so với 95.40). Các thay đổi retrieval chọn nhờ phản hồi Public (30 ứng viên, reranker phần đuôi) **không bị overfit**.
+- **Generation thấp** (78.75 so với 85 trên Public). Private có 9 câu từ chối, nhưng chỉ khoảng 3 câu thật sự không có đáp án. Phần còn lại là câu **có đáp án một phần** mà LLM vẫn mở đầu bằng "Tài liệu hiện có không có thông tin".
+  - Bản **cắt** làm các câu này mất trắng: SP và Noise thấp.
+  - Bản **không cắt** lấy lại được SP (+9) và Groundedness (+7.7), nhưng một câu không có đáp án bị judge chấm trượt Abstention.
+- **Sai lầm gốc (S11):** ở E8, `trim_refusal` được quyết định từ train (4/126 câu kiểu này) và Public (1 câu). Đề Private có nhiều câu kiểu này hơn hẳn. Lỗi thật nằm ở **prompt**: quy tắc 8 (từ chối) và 9 (trả lời một phần) chồng lấn, nên LLM chọn từ chối quá sớm. Cắt hay không cắt chỉ là chữa triệu chứng.
+- **Không làm:** chỉ cắt riêng câu bị chấm trượt (private-0028). Đó là chọn tay theo từng câu của đề test, dựa trên mô phỏng judge, tương đương hard-code.
+
+### v11: sửa gốc ở prompt
+
+- Quy tắc 8: chỉ từ chối khi tài liệu **hoàn toàn** không có thông tin về đúng điều được hỏi, và chỉ viết **một câu**.
+- Quy tắc 9: có thông tin liên quan nhưng chưa đủ (năm hoặc đợt khác, "chưa mở", danh sách không có mục được hỏi, chỉ đủ một phần) thì **không** mở đầu bằng câu từ chối. Nêu điều tài liệu có ("Tài liệu không ghi …, chỉ cho biết …"). Đây cũng là văn phong của đáp án chuẩn trên train (train-0027, 0053, 0062, 0119).
+- Ví dụ từ chối tĩnh đổi sang một câu rõ ràng không có thông tin (ký túc xá, corpus không nhắc tới).
+- Cách sửa được kiểm chứng trên **train**, áp đồng loạt, không dựa trên từng câu Private.
+
+| Train | v10 | **v11** |
+|---|---:|---:|
+| Câu mở đầu bằng câu từ chối | 15 | 3 |
+| SP 4 câu có đáp án một phần | 0 / 0 / 0 / 0 | 1 / 1 / 0.5 / 1 |
+| Abstention 11 câu không có đáp án (judge, 4 lần) | 44/44 | 44/44 |
+| SP / ROUGE-L | 0.920 / 0.671 | 0.944 / 0.676 |
+
+- Chi phí: train khoảng $0.2, Public và Private khoảng $0.07 mỗi bộ.
+
+### Kết quả nộp Private v11 (ID 33348, lượt 4/5): **89.80**
+
+| Bài | Retrieval | SP | ROUGE-L | Groundedness | RR | 1 − Noise | Abstention | Generation | Tổng |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| v10 (cắt), ID 33278 | 97.27 | 84.83 | 58.66 | 89.74 | 55.93 | 83.33 | 100 | 78.75 | 88.34 |
+| v10 không cắt, ID 33281 | 97.27 | 93.80 | 60.22 | 97.44 | 53.67 | 87.61 | 66.67 | 76.57 | 86.92 |
+| **v11, ID 33348** | **97.60** | 90.38 | **61.63** | **98.08** | 54.05 | **87.82** | **100** | **81.99** | **89.80** |
+
+- Generation tăng 3.2 so với v10 (78.75 → 81.99), tức **+1.46 điểm tổng**. Có được cả hai mặt: Groundedness và Noise ngang bản không cắt, Abstention vẫn 100. Như vậy rủi ro loại D (E12) không xảy ra với các câu không có đáp án của Private.
+- Retrieval cũng tăng nhẹ (97.27 → 97.60): câu trả lời không còn từ chối nên LLM ghi được id đoạn liên quan vào dòng `ID:`.
+- Xác nhận bài học S11: sửa gốc ở prompt (được kiểm chứng trên train) tốt hơn chữa triệu chứng bằng hậu xử lý.
+
+## E12. Quy tắc tổng quát cho "loại D" (câu so sánh / hỏi lý do thiếu một vế) → **không giữ**
+
+**Loại D** là câu không có đáp án mà phần "chỉ cho biết Y" lại đọc như câu trả lời, vì Y chính là điều được hỏi sau khi bỏ điều kiện. Ví dụ public-0024: hỏi "so với chỗ học bên ngoài thì vào CLB được thêm gì". Tài liệu không có vế "bên ngoài", nhưng v11 liệt kê lợi ích CLB, và judge local chấm Abstention 0–2/4. Trên train không có câu nào thuộc loại này: cả 11 câu không có đáp án đều chỉ thiếu một thuộc tính.
+
+**Thay đổi (v12):**
+- Quy tắc 9 thêm: thông tin của năm/đợt/đối tượng khác phải ghi rõ nó thuộc năm/đợt/đối tượng nào.
+- Quy tắc 10 mới: nếu câu hỏi chỉ có một ý chính và ý đó là so sánh với đối tượng tài liệu không có, hoặc là lý do/mục đích tài liệu không nêu, thì trả lời một câu từ chối. Câu nhiều ý vẫn theo quy tắc 9.
+
+| | v11 | v12 |
+|---|---:|---:|
+| Train SP / ROUGE-L (115 câu có đáp án) | 0.945 / 0.678 | 0.941 / 0.676 (trong biên độ nhiễu) |
+| Train Abstention (11 câu × 4 lần, không cache) | 43/44 | 43/44 |
+| Train số câu từ chối | 3 | 4 (thêm train-0019, đúng là không có đáp án) |
+| public-0024 Abstention (4 lần) | 2/4 | **4/4** |
+| Public số câu từ chối | 1 | 3: thêm 0024 (đúng) và **0036 (từ chối nhầm)** |
+| Private số câu từ chối | 0 | 0 (quy tắc không kích hoạt câu nào) |
+
+- **public-0036** ("vì sao học C trước mà không học thẳng Python"): tài liệu có nêu lý do dạy C trước, v10 và v11 đều trả lời được. v12 lại từ chối, vì coi "vế Python" là vế thiếu. Về cấu trúc, câu này **giống hệt** public-0024 (A so với B, tài liệu không có B), nhưng một câu trả lời được, câu kia không. Ranh giới không nằm ở dạng câu hỏi nên quy tắc không tách được.
+- **private-0040** ("quyền lợi CLB IT PTIT, có hơn ProPTIT không") là câu giống loại D trên Private. LLM coi đây là câu 2 ý nên vẫn theo quy tắc 9, và v12 còn liệt kê thêm quyền lợi ProPTIT. Quy tắc không giúp được ở chỗ có thể cần.
+- **Bài học (S12):** một quy tắc viết tổng quát vẫn có thể chỉ có tác dụng trên đúng ví dụ đã gợi ra nó. Phải đếm cả câu bị kích hoạt sai (0036), không chỉ câu được sửa (0024). Cũng nên xem quy tắc có kích hoạt trên đề thật hay không (Private: 0 câu).
+- **Quyết định:** quay về prompt v11. Chi phí khoảng $0.30 (train $0.2, Public và Private mỗi bộ khoảng $0.05).

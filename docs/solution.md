@@ -146,7 +146,16 @@ Chi tiết từng thử nghiệm, kể cả các bước sai, ở [experiment_lo
 - Doc2query ([`scripts/build_doc2query.py`](../scripts/build_doc2query.py)) và MBR decoding (`HybridPipeline(mbr=3)`) có trong code nhưng tắt mặc định.
 - Cần `python scripts/install.py --local` và model `BAAI/bge-reranker-v2-m3` trên máy chạy. Trên CPU, mỗi câu mất khoảng 15 giây.
 
-Public Test: baseline 52.40, ngưỡng 53.40. HybridPipeline với prompt v2: **88.64**, prompt v5: **89.14**, v7b: **89.20**, v9: **89.94**.
+Public Test: baseline 52.40, ngưỡng 53.40. HybridPipeline với prompt v2: **88.64**, prompt v5: **89.14**, v7b: **89.20**, v9: **89.94**, v10: **90.19**.
+
+### v10–v11: reranker trọng số 2, cắt câu từ chối, rồi sửa prompt cho câu có đáp án một phần
+
+- v10: trọng số reranker 2 và `trim_refusal` (câu từ chối chỉ giữ câu đầu). Kết quả: Public 90.19, Private 88.34. Generation trên Private thấp vì nhiều câu có đáp án một phần bị viết thành câu từ chối rồi bị cắt mất thông tin.
+- v11: tách rõ quy tắc 8 và 9 trong prompt.
+  - Quy tắc 8: chỉ từ chối bằng một câu khi tài liệu hoàn toàn không có thông tin.
+  - Quy tắc 9: có thông tin liên quan nhưng chưa đủ thì viết "Tài liệu không ghi …, chỉ cho biết …".
+  - Cách sửa được kiểm chứng trên train (Abstention 44/44, SP 0.920 → 0.944).
+- Private v11: **89.80** (Generation 81.99, Abstention 100). Chi tiết ở E11–E12 trong [experiment_log.md](experiment_log.md).
 
 ### Từ điển viết tắt từ dataset ngoài
 

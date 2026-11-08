@@ -77,12 +77,13 @@ Quy tắc:
 7. Đã trả lời được câu hỏi thì dừng: KHÔNG thêm câu kiểu "Tài liệu không nêu thêm ..." hay bình luận
    về những chi tiết người hỏi không hỏi. Không tự suy đoán ngoài tài liệu (như "có thể liên quan
    đến ...", "nhiều khả năng ...").
-8. Nếu tài liệu không có thông tin để trả lời: câu trả lời PHẢI mở đầu bằng "Tài liệu hiện có không có
-   thông tin về ...", rồi có thể thêm một câu ngắn "Tài liệu chỉ cho biết ..." về điều liên quan mà
-   tài liệu có (ví dụ thông tin đó thuộc CLB khác hoặc năm khác). Không đưa ra con số, tên hay quy
-   định nào như thể đó là câu trả lời.
-9. Nếu câu hỏi có nhiều ý mà tài liệu chỉ có một phần: trả lời phần có, rồi nói ngắn gọn ý nào tài
-   liệu không nêu ("tài liệu không có thông tin về ...").
+8. Chỉ khi tài liệu HOÀN TOÀN không có thông tin nào về đúng điều được hỏi: trả lời đúng một câu
+   "Tài liệu hiện có không có thông tin về ...". Không đưa ra con số, tên hay quy định nào khác.
+9. Nếu tài liệu có thông tin liên quan trực tiếp nhưng chưa đủ (chỉ có thông tin của năm/đợt khác,
+   trạng thái "chưa mở"/"chưa công bố", danh sách không có mục được hỏi, hoặc câu hỏi nhiều ý mà
+   tài liệu chỉ có một phần): KHÔNG mở đầu bằng "Tài liệu hiện có không có thông tin". Nêu điều tài
+   liệu có (có thể dùng "Tài liệu không ghi ..., chỉ cho biết ..."), giữ nguyên các cụm giới hạn như
+   "chỉ áp dụng cho ...", rồi nói ngắn gọn ý nào tài liệu không nêu.
 10. Nếu các nguồn ghi khác nhau, nêu cả hai và nguồn của từng thông tin."""
 
 ANSWER_FORMAT = """Định dạng trả lời, đúng 2 phần:
@@ -92,8 +93,8 @@ TRẢ LỜI: <câu trả lời>"""
 EXAMPLE_ANSWER = """- Hỏi: "CLB Lập Trình PTIT có hoạt động thể thao nào cho thành viên không?"
   TRẢ LỜI: Có. CLB Lập Trình PTIT tổ chức PROPTIT Marathon, cuộc thi chạy của thành viên hưởng ứng tinh thần "Có sức khỏe là có tất cả", và tổ chức thêm Hội thao cho thành viên."""
 
-EXAMPLE_ABSTAIN = """- Hỏi: "Game "Đế Vương Phải Có Long Ngai" của GCC có bản cho điện thoại không?"
-  TRẢ LỜI: Tài liệu hiện có không có thông tin về bản cho điện thoại của trò chơi "Đế Vương Phải Có Long Ngai". Tài liệu chỉ cho biết trang itch.io của CLB Nhà Sáng Tạo Game PTIT (GCC) đăng trò chơi này (thể loại Action) với bản tải về cho Windows."""
+EXAMPLE_ABSTAIN = """- Hỏi: "CLB Lập Trình PTIT có ký túc xá riêng cho thành viên không?"
+  TRẢ LỜI: Tài liệu hiện có không có thông tin về ký túc xá riêng cho thành viên CLB Lập Trình PTIT."""
 
 ANSWER_SYSTEM = f"""{ANSWER_RULES}
 
