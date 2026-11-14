@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hỏi đáp S2B · NeoRAG</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <img src="favicon.svg" alt="" class="brand-mark" width="36" height="36">
+        <div>
+          <h1>Hỏi đáp S2B</h1>
+          <p class="brand-sub">CLB Lập Trình PTIT · CLB Multimedia PTIT · CLB Nhà Sáng Tạo Game PTIT</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span class="status" id="status" data-state="loading"><span class="dot"></span><span id="status-text">Đang nạp pipeline…</span></span>
+        <button class="icon-btn" id="new-chat" type="button" title="Cuộc trò chuyện mới" aria-label="Cuộc trò chuyện mới">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <button class="icon-btn" id="theme" type="button" title="Đổi giao diện sáng/tối" aria-label="Đổi giao diện sáng/tối">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="chat" id="chat" aria-live="polite">
+      <section class="welcome" id="welcome">
+        <h2>Hỏi gì về các CLB trong cộng đồng S2B?</h2>
+        <p>Chatbot tìm trong 118 đoạn tài liệu của BTC, trả lời ngắn gọn và chỉ rõ đoạn nào đã dùng.
+          Gõ có dấu hay không dấu, viết tắt đều được.</p>
+        <div class="examples" id="examples"></div>
+      </section>
+      <ol class="messages" id="messages"></ol>
+    </main>
+
+    <form class="composer" id="composer" autocomplete="off">
+      <textarea id="input" rows="1" maxlength="500" placeholder="Ví dụ: clb mm tuyen thanh vien khi nao?" aria-label="Câu hỏi"></textarea>
+      <button type="submit" id="send" class="send-btn" aria-label="Gửi câu hỏi" disabled>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l16-8-6 16-2.5-6.5L4 12z"/></svg>
+      </button>
+    </form>
+    <p class="hint">Enter để gửi · Shift + Enter xuống dòng · Mỗi câu hỏi được trả lời độc lập, không nhớ câu trước</p>
+  </div>
+
+  <aside class="drawer" id="drawer" aria-hidden="true">
+    <div class="drawer-head">
+      <div>
+        <span class="drawer-id" id="drawer-id"></span>
+        <h3 id="drawer-club"></h3>
+        <p id="drawer-topic"></p>
+      </div>
+      <button class="icon-btn" id="drawer-close" type="button" aria-label="Đóng">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <p class="drawer-text" id="drawer-text"></p>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
